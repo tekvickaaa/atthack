@@ -27,4 +27,8 @@ export default {
   ACTIVATION_THRESHOLD: 0.5,   // Confidence threshold to start utterance
   DEACTIVATION_THRESHOLD: 0.3, // Lower threshold to maintain active utterance
   SILENCE_DURATION: 1000,      // Allow 1 second of silence before ending speech
+
+  // ElevenLabs settings
+  ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY || "",
+  ELEVENLABS_VOICE_ID: process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb", // Default voice (George)
 };

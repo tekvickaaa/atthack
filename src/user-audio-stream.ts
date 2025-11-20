@@ -1,10 +1,12 @@
 import { FrameProcessor, NonRealTimeVAD } from "@ricky0123/vad-node";
 import type { TextBasedChannel } from "discord.js";
+import { VoiceConnection } from "@discordjs/voice";
 import { Buffer } from "node:buffer";
 import prism from "prism-media";
 import config from "./config.ts";
 import logger from "./logger.ts";
 import { Utterance } from "./utterance.ts";
+import { TTSService } from "./tts-service.ts";
 
 /**
  * Class that processes a user's audio stream with real-time VAD
@@ -35,7 +37,9 @@ export class UserAudioStream {
     private guildId: string,
     private channelId: string,
     private meetingName: string,
-    private meetingDescription: string
+    private meetingDescription: string,
+    private ttsService: TTSService,
+    private connection: VoiceConnection
   ) {
     // Create decoder
     this.opusDecoder = new prism.opus.Decoder({
@@ -181,7 +185,9 @@ export class UserAudioStream {
                 this.guildId,
                 this.channelId,
                 this.meetingName,
-                this.meetingDescription
+                this.meetingDescription,
+                this.ttsService,
+                this.connection
               );
             }
 
