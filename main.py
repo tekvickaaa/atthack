@@ -9,7 +9,6 @@ from schemas import (
     MeetingResponse,
     MeetingCreate,
     MeetingCreateResponse,
-    TranscriptsCreate,
     TranscribeResponse
 )
 from models import User, Meeting, Transcribe
