@@ -11,7 +11,7 @@ from schemas import (
     MeetingCreateResponse,
     TranscriptItem,
     TranscribeResponse,
-    QuizResponse,
+QuizResponse,
     QuizSubmission,
     QuizSubmissionResponse,
     UserQuizAttemptResponse,
@@ -330,7 +330,7 @@ async def submit_quiz(quiz_id: int, submission: QuizSubmission, db: db_dependenc
 async def get_user_quiz_attempts(
         username: str,
         quiz_id: Optional[int] = None,
-        db: db_dependency = Depends(get_db)
+        db: db_dependency = None
 ):
     """
     Get user's quiz attempt history.
