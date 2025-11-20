@@ -179,6 +179,9 @@ export class UserAudioStream {
                 this.guildId,
                 this.channelId
               );
+              
+              // Enable streaming mode for real-time updates
+              this.currentUtterance.enableStreaming();
             }
 
             // Add audio to current utterance

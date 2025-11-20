@@ -3,6 +3,7 @@ import { Client, Events, GatewayIntentBits } from "discord.js";
 import config from "./config.ts";
 import { TranscriptionService } from "./transcription.ts";
 import { transcriptStore } from "./transcript-store.ts";
+import { meetingManager } from "./meeting-manager.ts";
 
 // Check for required environment variables
 if (!config.DISCORD_TOKEN) {
@@ -65,6 +66,45 @@ client.on(Events.MessageCreate, async (message) => {
   const command = args.shift()?.toLowerCase();
 
   if (command === config.START_COMMAND) {
+    // Parse arguments: !transcribe "meeting name" "description"
+    const fullArgs = message.content.slice(config.PREFIX.length + config.START_COMMAND.length).trim();
+    
+    // Check if arguments are provided
+    if (!fullArgs) {
+      message.reply('❌ **Missing required arguments!**\n\nUsage: `!transcribe "Meeting Name" "Meeting Description"`\nor: `!transcribe MeetingName Description`\n\nExample: `!transcribe "Team Standup" "Daily standup meeting for the dev team"`');
+      return;
+    }
+    
+    // Extract quoted strings or space-separated args
+    const quotedArgs = fullArgs.match(/"([^"]+)"/g);
+    let meetingName: string;
+    let meetingDescription: string;
+    
+    if (quotedArgs && quotedArgs.length >= 2) {
+      // Use quoted arguments
+      meetingName = quotedArgs[0].replace(/"/g, '');
+      meetingDescription = quotedArgs[1].replace(/"/g, '');
+    } else if (quotedArgs && quotedArgs.length === 1) {
+      // Only one quoted argument provided
+      message.reply('❌ **Missing meeting description!**\n\nUsage: `!transcribe "Meeting Name" "Meeting Description"`\n\nExample: `!transcribe "Team Standup" "Daily standup meeting for the dev team"`');
+      return;
+    } else {
+      // Fallback to space-separated
+      const parts = fullArgs.split(/\s+/).filter(p => p.length > 0);
+      if (parts.length < 2) {
+        message.reply('❌ **Missing required arguments!**\n\nBoth meeting name and description are required.\n\nUsage: `!transcribe "Meeting Name" "Meeting Description"`\nor: `!transcribe MeetingName Description`\n\nExample: `!transcribe ProjectReview "Discussion about Q4 project updates"`');
+        return;
+      }
+      meetingName = parts[0];
+      meetingDescription = parts.slice(1).join(' ');
+    }
+    
+    // Validate that both fields are not empty
+    if (!meetingName.trim() || !meetingDescription.trim()) {
+      message.reply('❌ **Meeting name and description cannot be empty!**\n\nPlease provide valid meeting name and description.');
+      return;
+    }
+
     // Check if user is in a voice channel
     const voiceChannel = message.member?.voice.channel;
     if (!voiceChannel) {
@@ -79,6 +119,17 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     try {
+      // Create meeting entry
+      if (!message.guildId) {
+        message.reply("This command can only be used in a server.");
+        return;
+      }
+
+      const meeting = meetingManager.addMeeting(meetingName, meetingDescription, message.guildId);
+      
+      // Placeholder: Send to server and get meeting ID
+      await meetingManager.updateMeetingIdFromServer(meeting);
+
       // Join the voice channel
       const connection = joinVoiceChannel({
         channelId: voiceChannel.id,
@@ -103,6 +154,7 @@ client.on(Events.MessageCreate, async (message) => {
         connection,
         subscription,
         textChannel: message.channel,
+        meeting,
       });
 
       // Handle disconnection
@@ -112,7 +164,9 @@ client.on(Events.MessageCreate, async (message) => {
       });
 
       message.reply(
-        "Voice transcription started. I will transcribe all spoken text in this channel."
+        `Voice transcription started for meeting: **${meetingName}**\n` +
+        `Description: ${meetingDescription}\n` +
+        `Meeting ID: ${meeting.meetingId}`
       );
     } catch (error) {
       console.error("Error joining voice channel:", error);
@@ -205,6 +259,29 @@ client.on(Events.MessageCreate, async (message) => {
     const count = transcriptStore.getTranscriptsByGuild(message.guildId).length;
     transcriptStore.clearTranscriptsByGuild(message.guildId);
     message.reply(`Cleared ${count} transcript(s).`);
+  } else if (command === "meetings") {
+    // List all meetings for this guild
+    if (!message.guildId) {
+      message.reply("This command can only be used in a server.");
+      return;
+    }
+
+    const meetings = meetingManager.getMeetingsByGuild(message.guildId);
+    
+    if (meetings.length === 0) {
+      message.reply("No meetings found for this server.");
+      return;
+    }
+
+    let response = `**Meetings in this server (${meetings.length}):**\n\n`;
+    meetings.forEach((meeting, index) => {
+      response += `**${index + 1}.** ${meeting.name}\n`;
+      response += `   Description: ${meeting.description}\n`;
+      response += `   Meeting ID: ${meeting.meetingId || 'Pending...'}\n`;
+      response += `   Created: ${meeting.createdAt.toLocaleString()}\n\n`;
+    });
+
+    message.reply(response);
   }
 });
 

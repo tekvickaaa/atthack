@@ -13,12 +13,17 @@ const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
  * - Creates and manages Discord message
  * - Collects audio chunks
  * - Processes transcription on finalize
+ * - Supports streaming real-time transcription
  */
 export class Utterance {
   private chunks: Buffer[] = [];
   private discordMessage: Message | null = null;
   private startTime = Date.now();
   private isFinalized = false;
+  private streamingTranscription = "";
+  private lastStreamUpdate = 0;
+  private streamUpdateInterval = 10000; // Update every 10 seconds during speech
+  private isStreaming = false;
 
   constructor(
     private userId: string,
@@ -52,6 +57,80 @@ export class Utterance {
   public addAudioData(data: Buffer) {
     if (!this.isFinalized) {
       this.chunks.push(data);
+      
+      // Check if we should do a streaming update
+      const now = Date.now();
+      if (this.isStreaming && now - this.lastStreamUpdate > this.streamUpdateInterval) {
+        this.streamPartialTranscription();
+      }
+    }
+  }
+
+  /**
+   * Enable streaming mode - will send partial updates while speaking
+   */
+  public enableStreaming() {
+    this.isStreaming = true;
+    this.lastStreamUpdate = Date.now();
+  }
+
+  /**
+   * Stream a partial transcription of audio collected so far
+   */
+  private async streamPartialTranscription() {
+    if (this.chunks.length === 0) return;
+    
+    this.lastStreamUpdate = Date.now();
+
+    try {
+      // Combine all chunks collected so far
+      const pcmBuffer = Buffer.concat(this.chunks);
+
+      // Convert to mono 16kHz for processing
+      const monoBuffer = this.convertToMono16k(pcmBuffer);
+
+      // Add WAV header
+      const wavBuffer = this.addWavHeader(monoBuffer, 16000, 1);
+
+      // Convert to base64
+      const base64Audio = wavBuffer.toString("base64");
+
+      // Get Gemini model and transcribe
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+      });
+
+      // Transcribe audio
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            mimeType: "audio/wav",
+            data: base64Audio,
+          },
+        },
+        {
+          text: 'Transcribe the speech in this audio. Only output the transcription, nothing else. If there is no clear speech, respond with "...".',
+        },
+      ]);
+
+      const transcription = result.response.text().trim();
+
+      // Update streaming transcription if we got something useful
+      if (transcription && transcription !== "..." && transcription !== "No speech detected") {
+        this.streamingTranscription = transcription;
+        
+        // Update the Discord message with partial transcription
+        if (this.discordMessage) {
+          try {
+            await this.discordMessage.edit(`<@${this.userId}>: ${transcription}...`);
+          } catch (error) {
+            logger.error("Error updating streaming message:", error);
+          }
+        }
+      }
+    } catch (error) {
+      logger.debug("Error in streaming transcription:", error);
+      // Don't log full errors for streaming updates - they're non-critical
     }
   }
 
@@ -61,13 +140,14 @@ export class Utterance {
   public async finalize() {
     if (this.isFinalized) return;
     this.isFinalized = true;
+    this.isStreaming = false;
 
     // Update message to show it's processing
-    if (this.discordMessage) {
+    if (this.discordMessage && this.chunks.length > 0) {
       try {
-        await this.discordMessage.edit(`<@${this.userId}>: *Transcribing...*`);
+        await this.discordMessage.edit(`<@${this.userId}>: *Finalizing...*`);
       } catch (error) {
-        logger.error("Error updating message to transcribing status:", error);
+        logger.error("Error updating message to finalizing status:", error);
       }
     }
 
