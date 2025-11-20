@@ -2,6 +2,7 @@ import { joinVoiceChannel, VoiceConnectionStatus } from "@discordjs/voice";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import config from "./config.ts";
 import { TranscriptionService } from "./transcription.ts";
+import { transcriptStore } from "./transcript-store.ts";
 
 // Check for required environment variables
 if (!config.DISCORD_TOKEN) {
@@ -131,6 +132,79 @@ client.on(Events.MessageCreate, async (message) => {
     activeTranscriptions.delete(message.guildId);
 
     message.reply("Voice transcription stopped.");
+  } else if (command === "transcript") {
+    // Show the transcript for this guild
+    if (!message.guildId) {
+      message.reply("This command can only be used in a server.");
+      return;
+    }
+
+    const guildTranscripts = transcriptStore.getTranscriptsByGuild(message.guildId);
+    
+    if (guildTranscripts.length === 0) {
+      message.reply("No transcripts available yet.");
+      return;
+    }
+
+    const formatted = transcriptStore.getFormattedTranscript(message.guildId);
+    
+    // Split into chunks if too long (Discord message limit is 2000 characters)
+    const chunks = [];
+    let currentChunk = "";
+    
+    for (const line of formatted.split("\n")) {
+      if (currentChunk.length + line.length + 1 > 1900) {
+        chunks.push(currentChunk);
+        currentChunk = line;
+      } else {
+        currentChunk += (currentChunk ? "\n" : "") + line;
+      }
+    }
+    
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+
+    // Send chunks
+    for (const chunk of chunks) {
+      await message.reply(chunk);
+    }
+  } else if (command === "export") {
+    // Export transcript as JSON
+    if (!message.guildId) {
+      message.reply("This command can only be used in a server.");
+      return;
+    }
+
+    const guildTranscripts = transcriptStore.getTranscriptsByGuild(message.guildId);
+    
+    if (guildTranscripts.length === 0) {
+      message.reply("No transcripts available to export.");
+      return;
+    }
+
+    const jsonData = JSON.stringify(guildTranscripts, null, 2);
+    
+    // Send as file
+    message.reply({
+      content: `Export of ${guildTranscripts.length} transcript(s):`,
+      files: [
+        {
+          attachment: Buffer.from(jsonData),
+          name: `transcript_${message.guildId}_${Date.now()}.json`,
+        },
+      ],
+    });
+  } else if (command === "clear") {
+    // Clear transcripts for this guild
+    if (!message.guildId) {
+      message.reply("This command can only be used in a server.");
+      return;
+    }
+
+    const count = transcriptStore.getTranscriptsByGuild(message.guildId).length;
+    transcriptStore.clearTranscriptsByGuild(message.guildId);
+    message.reply(`Cleared ${count} transcript(s).`);
   }
 });
 

@@ -22,11 +22,15 @@ export class TranscriptionService {
     // Store the text channel for sending transcriptions
     this.transcriptionChannels.set(subscriptionId, textChannel);
 
+    // Get guild ID and channel ID
+    const guildId = "guildId" in textChannel ? textChannel.guildId || "DM" : "DM";
+    const channelId = textChannel.id;
+
     // Track active users to avoid duplicate subscriptions
     const activeUsers = new Set<string>();
 
     // Set up audio receiving
-    receiver.speaking.on("start", (userId) => {
+    receiver.speaking.on("start", async (userId) => {
       logger.debug(`User ${userId} started speaking`);
 
       // Skip if we already have an active stream for this user
@@ -37,6 +41,18 @@ export class TranscriptionService {
 
       // Mark user as active
       activeUsers.add(userId);
+
+      // Get username from Discord client
+      let username = "Unknown User";
+      try {
+        // Get the guild from the voice connection to fetch member info
+        if ("guild" in textChannel && textChannel.guild) {
+          const member = await textChannel.guild.members.fetch(userId);
+          username = member.user.username;
+        }
+      } catch (error) {
+        logger.error(`Error fetching username for user ${userId}:`, error);
+      }
 
       // Create audio subscription
       const audioStream = receiver.subscribe(userId, {
@@ -56,7 +72,10 @@ export class TranscriptionService {
           // Cleanup function
           this.activeStreams.delete(streamKey);
           activeUsers.delete(userId);
-        }
+        },
+        username,
+        guildId,
+        channelId
       );
 
       // Store the stream processor

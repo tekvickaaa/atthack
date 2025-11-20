@@ -3,6 +3,7 @@ import type { Message, TextBasedChannel } from "discord.js";
 import { Buffer } from "node:buffer";
 import config from "./config.ts";
 import logger from "./logger.ts";
+import { transcriptStore } from "./transcript-store.ts";
 
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
@@ -19,7 +20,13 @@ export class Utterance {
   private startTime = Date.now();
   private isFinalized = false;
 
-  constructor(private userId: string, private textChannel: TextBasedChannel) {
+  constructor(
+    private userId: string,
+    private textChannel: TextBasedChannel,
+    private username: string,
+    private guildId: string,
+    private channelId: string
+  ) {
     this.createPlaceholderMessage();
   }
 
@@ -156,6 +163,18 @@ export class Utterance {
           transcription.trim() !== "No speech detected."
         ) {
           await this.discordMessage.edit(`<@${this.userId}>: ${transcription}`);
+          
+          // Save transcript to store
+          transcriptStore.addTranscript({
+            userId: this.userId,
+            username: this.username,
+            transcription: transcription.trim(),
+            timestamp: new Date(),
+            guildId: this.guildId,
+            channelId: this.channelId,
+          });
+          
+          logger.debug(`Saved transcript for user ${this.userId}`);
         } else {
           // Delete the message instead of showing "No speech detected"
           await this.discordMessage.delete();

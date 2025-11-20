@@ -30,7 +30,10 @@ export class UserAudioStream {
     private streamKey: string,
     private textChannel: TextBasedChannel,
     private audioStream: any,
-    private onEnd: () => void
+    private onEnd: () => void,
+    private username: string,
+    private guildId: string,
+    private channelId: string
   ) {
     // Create decoder
     this.opusDecoder = new prism.opus.Decoder({
@@ -171,7 +174,10 @@ export class UserAudioStream {
               // Create a new utterance
               this.currentUtterance = new Utterance(
                 this.userId,
-                this.textChannel
+                this.textChannel,
+                this.username,
+                this.guildId,
+                this.channelId
               );
             }
 

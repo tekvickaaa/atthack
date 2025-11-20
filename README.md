@@ -9,6 +9,8 @@ A Discord bot that transcribes voice channel conversations using Google's Gemini
 - Uses Silero voice activity detection (VAD) to filter out noise and background sounds
 - Displays placeholder messages immediately when speech is detected
 - Updates transcriptions in-place with real-time editing
+- Stores all transcripts in memory for later access
+- Export transcripts as JSON or view formatted history
 - Simple commands to start and stop transcription
 
 ## Prerequisites
@@ -52,6 +54,9 @@ pnpm dev
 In Discord, use the following commands:
 - `!transcribe` - Start transcribing the voice channel you're in
 - `!stop` - Stop transcription
+- `!transcript` - View all transcripts from the current session
+- `!export` - Export transcripts as a JSON file
+- `!clear` - Clear all transcripts for this server
 
 ## Development
 
