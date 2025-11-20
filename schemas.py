@@ -9,8 +9,6 @@ class BaseSchema(BaseModel):
 class MeetingCreate(BaseModel):
     name: str
     description: str
-    meetingId: str  # The temp ID from client
-    createdAt: Optional[str] = None  # We'll ignore this but accept it
 
 class TranscriptItem(BaseModel):
     userId: str
@@ -19,10 +17,6 @@ class TranscriptItem(BaseModel):
     timestamp: str  # ISO format datetime string
     guildId: str
     channelId: str
-
-class TranscriptsCreate(BaseModel):
-    meeting_id: int  # The real DB meeting ID
-    transcripts: List[TranscriptItem]
 
 # Response schemas
 class UserResponse(BaseSchema):
@@ -58,7 +52,6 @@ class MeetingResponse(BaseSchema):
 class MeetingCreateResponse(BaseSchema):
     id: int
     name: str
-    temp_meeting_id: Optional[str] = None
 
 class ParticipantResponse(BaseSchema):
     id: int

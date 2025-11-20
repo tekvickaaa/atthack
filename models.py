@@ -42,7 +42,6 @@ class Meeting(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
-    temp_meeting_id = Column(String, nullable=True, unique=True)  # Store the original temp ID
     summary = Column(String, nullable=True)
     begins_at = Column(DateTime(timezone=True), nullable=True)
     duration = Column(Interval, nullable=True)
