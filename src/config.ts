@@ -5,6 +5,12 @@ export default {
   // Gemini API key
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
 
+  // OpenRouter API key
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+
+  // OpenRouter Model
+  OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001",
+
   // Discord command prefix
   PREFIX: "!",
 

@@ -36,3 +36,4 @@ temp/
 # Cache
 .npm
 .pnpm-store/
+node_modules

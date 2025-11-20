@@ -33,7 +33,9 @@ export class UserAudioStream {
     private onEnd: () => void,
     private username: string,
     private guildId: string,
-    private channelId: string
+    private channelId: string,
+    private meetingName: string,
+    private meetingDescription: string
   ) {
     // Create decoder
     this.opusDecoder = new prism.opus.Decoder({
@@ -177,11 +179,10 @@ export class UserAudioStream {
                 this.textChannel,
                 this.username,
                 this.guildId,
-                this.channelId
+                this.channelId,
+                this.meetingName,
+                this.meetingDescription
               );
-              
-              // Enable streaming mode for real-time updates
-              this.currentUtterance.enableStreaming();
             }
 
             // Add audio to current utterance

@@ -12,7 +12,9 @@ export class TranscriptionService {
 
   createTranscriptionStream(
     connection: VoiceConnection,
-    textChannel: TextBasedChannel
+    textChannel: TextBasedChannel,
+    meetingName: string,
+    meetingDescription: string
   ) {
     const receiver = connection.receiver;
 
@@ -75,7 +77,9 @@ export class TranscriptionService {
         },
         username,
         guildId,
-        channelId
+        channelId,
+        meetingName,
+        meetingDescription
       );
 
       // Store the stream processor

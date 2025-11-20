@@ -20,17 +20,15 @@ export class Utterance {
   private discordMessage: Message | null = null;
   private startTime = Date.now();
   private isFinalized = false;
-  private streamingTranscription = "";
-  private lastStreamUpdate = 0;
-  private streamUpdateInterval = 10000; // Update every 10 seconds during speech
-  private isStreaming = false;
 
   constructor(
     private userId: string,
     private textChannel: TextBasedChannel,
     private username: string,
     private guildId: string,
-    private channelId: string
+    private channelId: string,
+    private meetingName: string,
+    private meetingDescription: string
   ) {
     this.createPlaceholderMessage();
   }
@@ -57,82 +55,10 @@ export class Utterance {
   public addAudioData(data: Buffer) {
     if (!this.isFinalized) {
       this.chunks.push(data);
-      
-      // Check if we should do a streaming update
-      const now = Date.now();
-      if (this.isStreaming && now - this.lastStreamUpdate > this.streamUpdateInterval) {
-        this.streamPartialTranscription();
-      }
     }
   }
 
-  /**
-   * Enable streaming mode - will send partial updates while speaking
-   */
-  public enableStreaming() {
-    this.isStreaming = true;
-    this.lastStreamUpdate = Date.now();
-  }
 
-  /**
-   * Stream a partial transcription of audio collected so far
-   */
-  private async streamPartialTranscription() {
-    if (this.chunks.length === 0) return;
-    
-    this.lastStreamUpdate = Date.now();
-
-    try {
-      // Combine all chunks collected so far
-      const pcmBuffer = Buffer.concat(this.chunks);
-
-      // Convert to mono 16kHz for processing
-      const monoBuffer = this.convertToMono16k(pcmBuffer);
-
-      // Add WAV header
-      const wavBuffer = this.addWavHeader(monoBuffer, 16000, 1);
-
-      // Convert to base64
-      const base64Audio = wavBuffer.toString("base64");
-
-      // Get Gemini model and transcribe
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
-      });
-
-      // Transcribe audio
-      const result = await model.generateContent([
-        {
-          inlineData: {
-            mimeType: "audio/wav",
-            data: base64Audio,
-          },
-        },
-        {
-          text: 'Transcribe the speech in this audio. Only output the transcription, nothing else. If there is no clear speech, respond with "...".',
-        },
-      ]);
-
-      const transcription = result.response.text().trim();
-
-      // Update streaming transcription if we got something useful
-      if (transcription && transcription !== "..." && transcription !== "No speech detected") {
-        this.streamingTranscription = transcription;
-        
-        // Update the Discord message with partial transcription
-        if (this.discordMessage) {
-          try {
-            await this.discordMessage.edit(`<@${this.userId}>: ${transcription}...`);
-          } catch (error) {
-            logger.error("Error updating streaming message:", error);
-          }
-        }
-      }
-    } catch (error) {
-      logger.debug("Error in streaming transcription:", error);
-      // Don't log full errors for streaming updates - they're non-critical
-    }
-  }
 
   /**
    * Finalize the utterance and perform transcription
@@ -140,14 +66,13 @@ export class Utterance {
   public async finalize() {
     if (this.isFinalized) return;
     this.isFinalized = true;
-    this.isStreaming = false;
 
     // Update message to show it's processing
     if (this.discordMessage && this.chunks.length > 0) {
       try {
-        await this.discordMessage.edit(`<@${this.userId}>: *Finalizing...*`);
+        await this.discordMessage.edit(`<@${this.userId}>: *Transcribing...*`);
       } catch (error) {
-        logger.error("Error updating message to finalizing status:", error);
+        logger.error("Error updating message to processing status:", error);
       }
     }
 
@@ -232,6 +157,80 @@ export class Utterance {
   }
 
   /**
+   * Check if the transcription is relevant to the meeting
+   */
+  private async checkRelevancy(currentTranscript: string): Promise<{ relevant: boolean; reason?: string }> {
+    if (!config.OPENROUTER_API_KEY) {
+      return { relevant: true };
+    }
+
+    try {
+      // Get past context (last 10 messages)
+      const pastTranscripts = transcriptStore
+        .getTranscriptsByGuild(this.guildId)
+        .slice(-10)
+        .map((t) => `${t.username}: ${t.transcription}`)
+        .join("\n");
+
+      const prompt = `
+You are a meeting assistant.
+Meeting Name: ${this.meetingName}
+Meeting Description: ${this.meetingDescription}
+
+Past Context:
+${pastTranscripts}
+
+Current Speech:
+${currentTranscript}
+
+Is the current speech relevant to the meeting topic and context?
+Reply with JSON only: {"relevant": boolean, "reason": "short reason"}
+`;
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${config.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: config.OPENROUTER_MODEL,
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful assistant that checks if a speech is relevant to a meeting. You must respond with valid JSON.",
+            },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        logger.error(`OpenRouter API error: ${response.statusText}`);
+        return { relevant: true };
+      }
+
+      const data = await response.json() as any;
+      const content = data.choices[0]?.message?.content;
+      
+      if (!content) return { relevant: true };
+
+      // Extract JSON from markdown code block if present
+      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0].replace(/```json|```/g, "") : content;
+
+      const result = JSON.parse(jsonStr);
+      return {
+        relevant: result.relevant,
+        reason: result.reason
+      };
+    } catch (error) {
+      logger.error("Error checking relevancy:", error);
+      return { relevant: true };
+    }
+  }
+
+  /**
    * Update message with transcription
    */
   private async updateMessageWithTranscription(transcription: string) {
@@ -242,13 +241,24 @@ export class Utterance {
           transcription.trim() !== "No speech detected" &&
           transcription.trim() !== "No speech detected."
         ) {
-          await this.discordMessage.edit(`<@${this.userId}>: ${transcription}`);
+          const trimmedTranscription = transcription.trim();
+          
+          // Check relevancy
+          const relevancy = await this.checkRelevancy(trimmedTranscription);
+          
+          let messageContent = `<@${this.userId}>: ${trimmedTranscription}`;
+          
+          if (!relevancy.relevant) {
+            messageContent += `\n⚠️ **Irrelevant:** ${relevancy.reason || "Off-topic"}`;
+          }
+
+          await this.discordMessage.edit(messageContent);
           
           // Save transcript to store
           transcriptStore.addTranscript({
             userId: this.userId,
             username: this.username,
-            transcription: transcription.trim(),
+            transcription: trimmedTranscription,
             timestamp: new Date(),
             guildId: this.guildId,
             channelId: this.channelId,

@@ -146,7 +146,9 @@ client.on(Events.MessageCreate, async (message) => {
 
       const subscription = transcriptionService.createTranscriptionStream(
         connection,
-        message.channel
+        message.channel,
+        meetingName,
+        meetingDescription
       );
 
       // Store the active transcription
@@ -237,15 +239,37 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
 
-    const jsonData = JSON.stringify(guildTranscripts, null, 2);
+    // Get meeting information for this guild
+    const guildMeetings = meetingManager.getMeetingsByGuild(message.guildId);
+    const meetingInfo = guildMeetings.length > 0 ? guildMeetings[guildMeetings.length - 1] : null;
+
+    // Create export data with meeting information
+    const exportData = {
+      meeting: meetingInfo ? {
+        name: meetingInfo.name,
+        description: meetingInfo.description,
+        meetingId: meetingInfo.meetingId,
+        createdAt: meetingInfo.createdAt,
+      } : null,
+      transcripts: guildTranscripts,
+      exportedAt: new Date(),
+    };
+
+    const jsonData = JSON.stringify(exportData, null, 2);
     
     // Send as file
+    const filename = meetingInfo 
+      ? `transcript_${meetingInfo.name.replace(/\s+/g, '_')}_${Date.now()}.json`
+      : `transcript_${message.guildId}_${Date.now()}.json`;
+
     message.reply({
-      content: `Export of ${guildTranscripts.length} transcript(s):`,
+      content: meetingInfo 
+        ? `Export of meeting: **${meetingInfo.name}**\nMeeting ID: ${meetingInfo.meetingId}\n${guildTranscripts.length} transcript(s)`
+        : `Export of ${guildTranscripts.length} transcript(s):`,
       files: [
         {
           attachment: Buffer.from(jsonData),
-          name: `transcript_${message.guildId}_${Date.now()}.json`,
+          name: filename,
         },
       ],
     });
