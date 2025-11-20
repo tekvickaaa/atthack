@@ -3,17 +3,27 @@ from typing import Annotated
 from fastapi import FastAPI, Depends, WebSocket, HTTPException, status
 from database import Base, engine, SessionLocal
 from sqlalchemy.orm import Session
-from schemas import UserResponse, MeetingResponse
-from models import User
+from datetime import datetime
+from schemas import (
+    UserResponse,
+    MeetingResponse,
+    MeetingCreate,
+    MeetingCreateResponse,
+    TranscriptsCreate,
+    TranscribeResponse
+)
+from models import User, Meeting, Transcribe
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    #Base.metadata.drop_all(bind=engine)
+    # Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine, checkfirst=True)
     yield
 
+
 app = FastAPI(lifespan=lifespan)
+
 
 def get_db():
     db = SessionLocal()
@@ -22,16 +32,22 @@ def get_db():
     finally:
         db.close()
 
+
 db_dependency = Annotated[Session, Depends(get_db)]
+
 
 @app.get("/")
 async def read_root():
     return {"Hello": "World"}
 
+
+# User endpoints
 @app.get("/user")
 async def read_users(db: db_dependency):
     users = db.query(User).all()
     return users
+
+
 @app.get("/user/{username}", response_model=UserResponse)
 async def read_user(username: str, db: db_dependency):
     user = db.query(User).filter(User.username == username).first()
@@ -39,12 +55,114 @@ async def read_user(username: str, db: db_dependency):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
+
 @app.put("/user/{username}", response_model=UserResponse)
 async def update_user(username: str, updated_user: UserResponse, db: db_dependency):
     pass
 
-@app.post("/transcript", status_code=status.HTTP_202_ACCEPTED)
-async def create_transcript(transcript: str, db: db_dependency):
-    #if there already is a transcript for the meeting and user, append to it
-    pass
 
+# Meeting endpoints
+@app.post("/meeting", response_model=MeetingCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_meeting(meeting_data: MeetingCreate, db: db_dependency):
+    """
+    Creates a new meeting and returns the database-generated meeting_id.
+    The temp meetingId is stored but the real DB id is returned.
+    """
+    # Remove "TEMP_" prefix if present
+    temp_id = meeting_data.meetingId.replace("TEMP_", "")
+
+    new_meeting = Meeting(
+        name=meeting_data.name,
+        description=meeting_data.description,
+        temp_meeting_id=temp_id
+    )
+
+    db.add(new_meeting)
+    db.commit()
+    db.refresh(new_meeting)
+
+    return MeetingCreateResponse(
+        id=new_meeting.id,
+        name=new_meeting.name,
+        temp_meeting_id=new_meeting.temp_meeting_id
+    )
+
+
+@app.get("/meeting/{meeting_id}", response_model=MeetingResponse)
+async def get_meeting(meeting_id: int, db: db_dependency):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
+    return meeting
+
+
+# Transcript endpoints
+@app.post("/transcripts", status_code=status.HTTP_201_CREATED)
+async def create_transcripts(data: TranscriptsCreate, db: db_dependency):
+    """
+    Receives an array of transcripts for a specific meeting_id.
+    Creates or updates users as needed, then saves all transcripts.
+    """
+    # Verify meeting exists
+    meeting = db.query(Meeting).filter(Meeting.id == data.meeting_id).first()
+    if not meeting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meeting with id {data.meeting_id} not found"
+        )
+
+    created_transcripts = []
+
+    for transcript in data.transcripts:
+        # Check if user exists, create if not
+        user = db.query(User).filter(User.username == transcript.username).first()
+        if not user:
+            user = User(
+                username=transcript.username,
+                discord_user_id=transcript.userId
+            )
+            db.add(user)
+            db.flush()  # Get the user ID without committing
+        elif not user.discord_user_id:
+            # Update discord_user_id if it wasn't set
+            user.discord_user_id = transcript.userId
+
+        # Parse timestamp
+        timestamp = datetime.fromisoformat(transcript.timestamp.replace('Z', '+00:00'))
+
+        # Create transcript
+        new_transcript = Transcribe(
+            user_username=user.username,
+            meeting_id=data.meeting_id,
+            transcription_text=transcript.transcription,
+            timestamp=timestamp,
+            guild_id=transcript.guildId,
+            channel_id=transcript.channelId
+        )
+
+        db.add(new_transcript)
+        created_transcripts.append(new_transcript)
+
+    db.commit()
+
+    # Refresh all transcripts to get their IDs
+    for t in created_transcripts:
+        db.refresh(t)
+
+    return {
+        "message": f"Successfully created {len(created_transcripts)} transcripts",
+        "meeting_id": data.meeting_id,
+        "transcript_count": len(created_transcripts)
+    }
+
+
+@app.get("/meeting/{meeting_id}/transcripts", response_model=list[TranscribeResponse])
+async def get_meeting_transcripts(meeting_id: int, db: db_dependency):
+    """
+    Get all transcripts for a specific meeting, ordered by timestamp.
+    """
+    transcripts = db.query(Transcribe).filter(
+        Transcribe.meeting_id == meeting_id
+    ).order_by(Transcribe.timestamp.asc()).all()
+
+    return transcripts

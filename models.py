@@ -5,11 +5,13 @@ import datetime
 from sqlalchemy.sql.sqltypes import Interval
 from database import Base
 
+
 class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True)
     username = Column(String, unique=True, nullable=False)
+    discord_user_id = Column(String, nullable=True)  # Added for Discord ID
     strengths = Column(String, nullable=True)
     weaknesses = Column(String, nullable=True)
     score = Column(Integer, default=0)
@@ -19,29 +21,37 @@ class User(Base):
     owned_meetings = relationship("Meeting", backref="owner")
     meetings_participated = relationship("Participant", backref="user")
 
+
 class Transcribe(Base):
     __tablename__ = 'transcribes'
 
-    user_username = Column(String, ForeignKey('users.username'), primary_key=True)
-    meeting_id = Column(Integer, ForeignKey('meetings.id'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # Added auto-increment ID
+    user_username = Column(String, ForeignKey('users.username'), nullable=False)
+    meeting_id = Column(Integer, ForeignKey('meetings.id'), nullable=False)
 
-    transcription_text = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    user = relationship("User", backref="transcribes")
-    meeting = relationship("Meeting", backref="transcribes")
+    transcription_text = Column(String, nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)  # Individual transcript timestamp
+    guild_id = Column(String, nullable=True)  # Discord guild/server ID
+    channel_id = Column(String, nullable=True)  # Discord channel ID
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # DB creation time
+
 
 class Meeting(Base):
     __tablename__ = 'meetings'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
+    temp_meeting_id = Column(String, nullable=True, unique=True)  # Store the original temp ID
     summary = Column(String, nullable=True)
     begins_at = Column(DateTime(timezone=True), nullable=True)
     duration = Column(Interval, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # Meeting creation time
     owner_username = Column(String, ForeignKey('users.username'), nullable=True)
-    user = relationship("User", backref="owned_meetings")
-    participants = relationship("Participant", backref="owned_meetings")
+
+    transcribes = relationship("Transcribe", backref="meeting")
+    participants = relationship("Participant", backref="meeting")
+
 
 class Participant(Base):
     __tablename__ = 'meeting_participants'
@@ -49,6 +59,4 @@ class Participant(Base):
 
     id = Column(Integer, primary_key=True)
     meeting_id = Column(Integer, ForeignKey('meetings.id'), nullable=False)
-    user_username = Column(Integer, ForeignKey('users.username'), nullable=False)
-    meeting = relationship("Meeting", backref="participants")
-    user = relationship("User", backref="meetings_participated")
+    user_username = Column(String, ForeignKey('users.username'), nullable=False)
