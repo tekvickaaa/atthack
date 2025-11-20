@@ -10,14 +10,23 @@ from schemas import (
     MeetingCreate,
     MeetingCreateResponse,
     TranscriptItem,
-    TranscribeResponse
+    TranscribeResponse,
+    QuizResponse,
+    QuizSubmission,
+    QuizSubmissionResponse,
+    UserQuizAttemptResponse,
+    MeetingSummaryResponse,
+    QuizWithAnswers,
+    QuestionWithCorrectAnswer
 )
+from fastapi import BackgroundTasks
+from quiz_service import QuizService
 from models import User, Meeting, Transcribe
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine, checkfirst=True)
     yield
 
@@ -34,6 +43,8 @@ def get_db():
 
 
 db_dependency = Annotated[Session, Depends(get_db)]
+from dotenv import load_dotenv
+load_dotenv()
 
 
 @app.get("/")

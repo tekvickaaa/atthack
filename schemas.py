@@ -57,3 +57,122 @@ class ParticipantResponse(BaseSchema):
     id: int
     meeting_id: int
     user_username: str
+
+
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional
+from datetime import datetime
+from enum import Enum
+
+
+class QuizTypeEnum(str, Enum):
+    intro = "intro"
+    outro = "outro"
+
+
+# Answer schemas
+class AnswerBase(BaseModel):
+    answer_text: str
+    order: int = Field(..., ge=0, le=3)
+
+
+class AnswerResponse(AnswerBase):
+    id: int
+    question_id: int
+
+    model_config = {"from_attributes": True}
+
+
+# Question schemas
+class QuestionBase(BaseModel):
+    question_text: str
+    order: int = Field(..., ge=0, le=4)
+
+
+class QuestionResponse(QuestionBase):
+    id: int
+    quiz_id: int
+    answers: List[AnswerResponse]
+
+    model_config = {"from_attributes": True}
+
+
+class QuestionWithCorrectAnswer(QuestionResponse):
+    """Extended version that includes correct answer - only used after submission"""
+    correct_answer_index: int
+
+
+# Quiz schemas
+class QuizResponse(BaseModel):
+    id: int
+    meeting_id: int
+    quiz_type: QuizTypeEnum
+    summary_points: Optional[str] = None
+    generated_at: datetime
+    questions: List[QuestionResponse]
+
+    model_config = {"from_attributes": True}
+
+
+class QuizWithAnswers(BaseModel):
+    """Quiz response after submission - includes correct answers"""
+    id: int
+    meeting_id: int
+    quiz_type: QuizTypeEnum
+    summary_points: Optional[str] = None
+    generated_at: datetime
+    questions: List[QuestionWithCorrectAnswer]
+
+    model_config = {"from_attributes": True}
+
+
+# Quiz submission schemas
+class QuestionAnswerSubmission(BaseModel):
+    question_id: int
+    selected_answer_index: int = Field(..., ge=0, le=3)
+
+
+class QuizSubmission(BaseModel):
+    user_username: str
+    answers: List[QuestionAnswerSubmission]
+
+    @field_validator('answers')
+    @classmethod
+    def validate_answers_length(cls, v):
+        if len(v) != 5:
+            raise ValueError('Must submit exactly 5 answers')
+        return v
+
+
+class QuizSubmissionResponse(BaseModel):
+    score: int
+    total_questions: int
+    percentage: float
+    passed: bool  # True if >= 60%
+    correct_answers: List[int]  # List of correct answer indices
+    user_answers: List[int]  # List of user's submitted answer indices
+    quiz_with_answers: QuizWithAnswers
+    attempt_id: int
+
+
+# User quiz attempt schemas
+class UserQuizAttemptResponse(BaseModel):
+    id: int
+    user_username: str
+    quiz_id: int
+    score: int
+    total_questions: int
+    completed_at: datetime
+    percentage: float
+    passed: bool
+
+    model_config = {"from_attributes": True}
+
+
+# Meeting summary schema
+class MeetingSummaryResponse(BaseModel):
+    meeting_id: int
+    meeting_name: str
+    summary_points: Optional[str] = None
+    generated_at: Optional[datetime] = None
+    has_outro_quiz: bool
