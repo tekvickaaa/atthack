@@ -3,11 +3,17 @@
 </script>
 
 <template>
-  <div>
-    <h1>function</h1>
-  </div>
+  <UContainer>
+    <div class="h-screen flex flex-col justify-center items-center gap-5">
+      <div class="flex flex-col justify-center items-center gap-2 w-[870px]">
+        <h1 class="font-bold text-5xl">Meetingy, ktoré konečne dávajú zmysel</h1>
+        <p class="text-center">AI nástroj, ktorý premieňa meetingy na produktívnu hru. Sleduje fokus, odmeňuje badge-mi, ponúka questy, predpovedá priebeh a ukazuje reálny dopad meetingov. Viac rozhodnutí, menej času.</p>
+      </div>
+      <UButton
+          label="Otvoriť dashboard"
+          size="xl"
+          to="/dashboard"
+      />
+    </div>
+  </UContainer>
 </template>
-
-<style scoped>
-
-</style>
