@@ -79,8 +79,7 @@ async def create_meeting(meeting_data: MeetingCreate, db: db_dependency):
 
     return MeetingCreateResponse(
         id=new_meeting.id,
-        name=new_meeting.name,
-        temp_meeting_id=None
+        name=new_meeting.name
     )
 
 

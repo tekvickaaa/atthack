@@ -52,7 +52,6 @@ class MeetingResponse(BaseSchema):
 class MeetingCreateResponse(BaseSchema):
     id: int
     name: str
-    temp_meeting_id: Optional[str] = None
 
 class ParticipantResponse(BaseSchema):
     id: int
