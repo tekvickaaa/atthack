@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@tsconfig/node-lts": "^22.0.1",
+    "node-gyp": "^12.1.0",
     "typescript": "^5.8.2"
   }
 }
