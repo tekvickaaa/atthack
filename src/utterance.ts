@@ -163,7 +163,7 @@ export class Utterance {
   /**
    * Check if the transcription is relevant to the meeting
    */
-  private async checkRelevancy(currentTranscript: string): Promise<{ relevant: boolean; reason?: string; warning?: string }> {
+  private async checkRelevancy(currentTranscript: string): Promise<{ relevant: boolean; chatWarning?: string; warning?: string }> {
     if (!config.OPENROUTER_API_KEY) {
       return { relevant: true };
     }
@@ -191,7 +191,8 @@ Is the current speech relevant to the meeting topic and context?
 If it is NOT relevant, provide a short warning message to be spoken to the user.
 IMPORTANT: The warning message MUST be in the same language as the Meeting Description.
 IMPORTANT: The warning message MUST address the user by name (${this.username}).
-Reply with JSON only: {"relevant": boolean, "reason": "short reason", "warning": "warning message in the appropriate language addressing the user"}
+IMPORTANT: The chat warning MUST be in the same language as the Meeting Description.
+Reply with JSON only: {"relevant": boolean, "chatWarning": "short warning text for chat in the appropriate language (e.g. '⚠️ Irrelevant: reason')", "warning": "warning message in the appropriate language addressing the user for TTS"}
 `;
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -229,7 +230,7 @@ Reply with JSON only: {"relevant": boolean, "reason": "short reason", "warning":
       const result = JSON.parse(jsonStr);
       return {
         relevant: result.relevant,
-        reason: result.reason,
+        chatWarning: result.chatWarning,
         warning: result.warning
       };
     } catch (error) {
@@ -257,12 +258,12 @@ Reply with JSON only: {"relevant": boolean, "reason": "short reason", "warning":
           let messageContent = `<@${this.userId}>: ${trimmedTranscription}`;
           
           if (!relevancy.relevant) {
-            const reason = relevancy.reason || "Off-topic";
-            messageContent += `\n⚠️ **Irrelevant:** ${reason}`;
+            const chatWarning = relevancy.chatWarning || "⚠️ **Irrelevant:** Off-topic";
+            messageContent += `\n${chatWarning}`;
             
             // Play TTS warning
             try {
-              const warningText = relevancy.warning || `${this.username}, that comment was irrelevant. ${reason}`;
+              const warningText = relevancy.warning || `${this.username}, that comment was irrelevant.`;
               const audioResource = await this.ttsService.generateAudioResource(warningText);
               const player = createAudioPlayer();
               player.play(audioResource);

@@ -1,3 +1,5 @@
+import type { TranscriptEntry } from "./transcript-store.ts";
+
 interface Meeting {
   meetingId: string;
   name: string;
@@ -41,20 +43,81 @@ class MeetingManager {
 
   /**
    * Update meeting ID when connected to server
-   * Placeholder for future server integration
    */
   async updateMeetingIdFromServer(meeting: Meeting): Promise<void> {
-    // TODO: Implement server connection
-    // This will send meeting data to server and receive meeting ID
-    console.log(`[Placeholder] Would send meeting to server:`, {
-      name: meeting.name,
-      description: meeting.description,
-    });
-    
-    // Simulate server response
-    meeting.meetingId = `TEMP_${Date.now()}`;
-    
-    console.log(`[Placeholder] Received meeting ID: ${meeting.meetingId}`);
+    try {
+      console.log(`[Server] Sending meeting to server:`, {
+        name: meeting.name,
+        description: meeting.description,
+      });
+
+      const response = await fetch("http://13.60.191.32:8000/meeting", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: meeting.name,
+          description: meeting.description,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json() as { id: number, name: string };
+      
+      if (data && data.id !== undefined) {
+        meeting.meetingId = data.id.toString();
+        console.log(`[Server] Received meeting ID: ${meeting.meetingId}`);
+      } else {
+        console.error("[Server] Invalid response format:", data);
+        meeting.meetingId = `TEMP_${Date.now()}`;
+      }
+    } catch (error) {
+      console.error("[Server] Error creating meeting:", error);
+      // Fallback to temp ID if server request fails
+      meeting.meetingId = `TEMP_${Date.now()}`;
+    }
+  }
+
+  /**
+   * Send transcripts to server
+   */
+  async sendTranscriptsToServer(meetingId: string, transcripts: TranscriptEntry[]): Promise<void> {
+    // Skip if meeting ID is temporary (not from server)
+    if (meetingId.startsWith("TEMP_")) {
+      console.log(`[Server] Skipping transcript upload for temporary meeting ID: ${meetingId}`);
+      return;
+    }
+
+    try {
+      console.log(`[Server] Sending ${transcripts.length} transcripts for meeting ${meetingId}`);
+
+      const response = await fetch(`http://13.60.191.32:8000/meeting/${meetingId}/transcripts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(transcripts.map(t => ({
+          userId: t.userId,
+          username: t.username,
+          transcription: t.transcription,
+          timestamp: t.timestamp.toISOString(),
+          guildId: t.guildId,
+          channelId: t.channelId
+        }))),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+      }
+
+      console.log(`[Server] Transcripts sent successfully`);
+    } catch (error) {
+      console.error("[Server] Error sending transcripts:", error);
+    }
   }
 
   /**
