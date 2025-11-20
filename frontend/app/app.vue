@@ -1,5 +1,6 @@
 <template>
   <div>
+    <UHeader />
     <NuxtRouteAnnouncer />
     <NuxtWelcome />
   </div>
