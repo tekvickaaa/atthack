@@ -1,9 +1,10 @@
-import { joinVoiceChannel, VoiceConnectionStatus } from "@discordjs/voice";
+import { joinVoiceChannel, VoiceConnectionStatus, createAudioPlayer } from "@discordjs/voice";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import config from "./config.ts";
 import { TranscriptionService } from "./transcription.ts";
 import { transcriptStore } from "./transcript-store.ts";
 import { meetingManager } from "./meeting-manager.ts";
+import { TTSService } from "./tts-service.ts";
 
 // Check for required environment variables
 if (!config.DISCORD_TOKEN) {
@@ -47,6 +48,7 @@ client.on("error", (error) => {
 
 // Initialize transcription service
 const transcriptionService = new TranscriptionService();
+const ttsService = new TTSService();
 
 // Map to track active transcription sessions
 const activeTranscriptions = new Map();
@@ -148,7 +150,8 @@ client.on(Events.MessageCreate, async (message) => {
         connection,
         message.channel,
         meetingName,
-        meetingDescription
+        meetingDescription,
+        ttsService
       );
 
       // Store the active transcription
@@ -188,6 +191,53 @@ client.on(Events.MessageCreate, async (message) => {
     activeTranscriptions.delete(message.guildId);
 
     message.reply("Voice transcription stopped.");
+  } else if (command === "say") {
+    if (!message.guildId) return;
+    const transcription = activeTranscriptions.get(message.guildId);
+    
+    if (!transcription) {
+      message.reply("I need to be in a voice channel first. Use !transcribe to start.");
+      return;
+    }
+
+    const textToSay = args.join(" ");
+    if (!textToSay) {
+      message.reply("Please provide text to say.");
+      return;
+    }
+
+    try {
+      const audioResource = await ttsService.generateAudioResource(textToSay);
+      const player = createAudioPlayer();
+      transcription.connection.subscribe(player);
+      player.play(audioResource);
+      message.react("🗣️");
+    } catch (error) {
+      console.error("TTS Error:", error);
+      message.reply("Failed to generate speech.");
+    }
+  } else if (command === "warn") {
+    if (!message.guildId) return;
+    const transcription = activeTranscriptions.get(message.guildId);
+    
+    if (!transcription) {
+      message.reply("I need to be in a voice channel first. Use !transcribe to start.");
+      return;
+    }
+
+    const textToSay = args.join(" ") || "This is not relevant.";
+    const warningText = `Warning: ${textToSay}`;
+
+    try {
+      const audioResource = await ttsService.generateAudioResource(warningText);
+      const player = createAudioPlayer();
+      transcription.connection.subscribe(player);
+      player.play(audioResource);
+      message.react("⚠️");
+    } catch (error) {
+      console.error("TTS Error:", error);
+      message.reply("Failed to generate speech.");
+    }
   } else if (command === "transcript") {
     // Show the transcript for this guild
     if (!message.guildId) {

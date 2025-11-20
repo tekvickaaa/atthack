@@ -3,6 +3,7 @@ import type { TextBasedChannel } from "discord.js";
 import config from "./config.ts";
 import logger from "./logger.ts";
 import { UserAudioStream } from "./user-audio-stream.ts";
+import { TTSService } from "./tts-service.ts";
 
 export class TranscriptionService {
   private activeStreams: Map<string, UserAudioStream> = new Map();
@@ -14,7 +15,8 @@ export class TranscriptionService {
     connection: VoiceConnection,
     textChannel: TextBasedChannel,
     meetingName: string,
-    meetingDescription: string
+    meetingDescription: string,
+    ttsService: TTSService
   ) {
     const receiver = connection.receiver;
 
@@ -79,7 +81,9 @@ export class TranscriptionService {
         guildId,
         channelId,
         meetingName,
-        meetingDescription
+        meetingDescription,
+        ttsService,
+        connection
       );
 
       // Store the stream processor

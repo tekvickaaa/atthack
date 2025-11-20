@@ -1,9 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Message, TextBasedChannel } from "discord.js";
+import { VoiceConnection, createAudioPlayer } from "@discordjs/voice";
 import { Buffer } from "node:buffer";
 import config from "./config.ts";
 import logger from "./logger.ts";
 import { transcriptStore } from "./transcript-store.ts";
+import { TTSService } from "./tts-service.ts";
 
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
@@ -28,7 +30,9 @@ export class Utterance {
     private guildId: string,
     private channelId: string,
     private meetingName: string,
-    private meetingDescription: string
+    private meetingDescription: string,
+    private ttsService: TTSService,
+    private connection: VoiceConnection
   ) {
     this.createPlaceholderMessage();
   }
@@ -159,7 +163,7 @@ export class Utterance {
   /**
    * Check if the transcription is relevant to the meeting
    */
-  private async checkRelevancy(currentTranscript: string): Promise<{ relevant: boolean; reason?: string }> {
+  private async checkRelevancy(currentTranscript: string): Promise<{ relevant: boolean; reason?: string; warning?: string }> {
     if (!config.OPENROUTER_API_KEY) {
       return { relevant: true };
     }
@@ -180,11 +184,14 @@ Meeting Description: ${this.meetingDescription}
 Past Context:
 ${pastTranscripts}
 
-Current Speech:
+Current Speech (by ${this.username}):
 ${currentTranscript}
 
 Is the current speech relevant to the meeting topic and context?
-Reply with JSON only: {"relevant": boolean, "reason": "short reason"}
+If it is NOT relevant, provide a short warning message to be spoken to the user.
+IMPORTANT: The warning message MUST be in the same language as the Meeting Description.
+IMPORTANT: The warning message MUST address the user by name (${this.username}).
+Reply with JSON only: {"relevant": boolean, "reason": "short reason", "warning": "warning message in the appropriate language addressing the user"}
 `;
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -222,7 +229,8 @@ Reply with JSON only: {"relevant": boolean, "reason": "short reason"}
       const result = JSON.parse(jsonStr);
       return {
         relevant: result.relevant,
-        reason: result.reason
+        reason: result.reason,
+        warning: result.warning
       };
     } catch (error) {
       logger.error("Error checking relevancy:", error);
@@ -249,7 +257,19 @@ Reply with JSON only: {"relevant": boolean, "reason": "short reason"}
           let messageContent = `<@${this.userId}>: ${trimmedTranscription}`;
           
           if (!relevancy.relevant) {
-            messageContent += `\n⚠️ **Irrelevant:** ${relevancy.reason || "Off-topic"}`;
+            const reason = relevancy.reason || "Off-topic";
+            messageContent += `\n⚠️ **Irrelevant:** ${reason}`;
+            
+            // Play TTS warning
+            try {
+              const warningText = relevancy.warning || `${this.username}, that comment was irrelevant. ${reason}`;
+              const audioResource = await this.ttsService.generateAudioResource(warningText);
+              const player = createAudioPlayer();
+              player.play(audioResource);
+              this.connection.subscribe(player);
+            } catch (ttsError) {
+              logger.error("Error playing TTS warning:", ttsError);
+            }
           }
 
           await this.discordMessage.edit(messageContent);
