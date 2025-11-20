@@ -70,6 +70,10 @@ async def update_user(username: str, updated_user: UserResponse, db: db_dependen
 
 
 # Meeting endpoints
+@app.get("/meeting", response_model=List[MeetingResponse])
+async def read_meetings(db: db_dependency):
+    meetings = db.query(Meeting).all()
+    return meetings
 @app.post("/meeting", response_model=MeetingCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_meeting(
         meeting_data: MeetingCreate,
