@@ -178,6 +178,8 @@ client.on(Events.MessageCreate, async (message) => {
       message.reply("There was an error joining your voice channel.");
     }
   } else if (command === config.STOP_COMMAND) {
+    if (!message.guildId) return;
+    
     // Check if there's an active transcription
     const transcription = activeTranscriptions.get(message.guildId);
     if (!transcription) {
@@ -188,9 +190,23 @@ client.on(Events.MessageCreate, async (message) => {
     // Stop transcription
     transcriptionService.stopTranscription(transcription.subscription);
     transcription.connection.destroy();
-    activeTranscriptions.delete(message.guildId);
+    
+    // Send transcripts to server
+    const meeting = transcription.meeting;
+    const transcripts = transcriptStore.getTranscriptsByGuild(message.guildId);
+    
+    // Filter transcripts that belong to this meeting (created after meeting start)
+    const meetingTranscripts = transcripts.filter(t => t.timestamp >= meeting.createdAt);
+    
+    if (meetingTranscripts.length > 0) {
+      message.reply(`Voice transcription stopped. Sending ${meetingTranscripts.length} transcripts to server...`);
+      await meetingManager.sendTranscriptsToServer(meeting.meetingId, meetingTranscripts);
+      message.channel.send("Transcripts sent!");
+    } else {
+      message.reply("Voice transcription stopped. No transcripts to send.");
+    }
 
-    message.reply("Voice transcription stopped.");
+    activeTranscriptions.delete(message.guildId);
   } else if (command === "say") {
     if (!message.guildId) return;
     const transcription = activeTranscriptions.get(message.guildId);
