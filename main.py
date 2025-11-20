@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, List
 from fastapi import FastAPI, Depends, WebSocket, HTTPException, status
 from database import Base, engine, SessionLocal
 from sqlalchemy.orm import Session
@@ -9,6 +9,7 @@ from schemas import (
     MeetingResponse,
     MeetingCreate,
     MeetingCreateResponse,
+    TranscriptItem,
     TranscribeResponse
 )
 from models import User, Meeting, Transcribe
@@ -92,23 +93,23 @@ async def get_meeting(meeting_id: int, db: db_dependency):
 
 
 # Transcript endpoints
-@app.post("/transcripts", status_code=status.HTTP_201_CREATED)
-async def create_transcripts(data: TranscriptsCreate, db: db_dependency):
+@app.post("/meeting/{meeting_id}/transcripts", status_code=status.HTTP_201_CREATED)
+async def create_transcripts(meeting_id: int, transcripts: List[TranscriptItem], db: db_dependency):
     """
-    Receives an array of transcripts for a specific meeting_id.
+    Receives an array of transcripts for a specific meeting_id (as URL parameter).
     Creates or updates users as needed, then saves all transcripts.
     """
     # Verify meeting exists
-    meeting = db.query(Meeting).filter(Meeting.id == data.meeting_id).first()
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Meeting with id {data.meeting_id} not found"
+            detail=f"Meeting with id {meeting_id} not found"
         )
 
     created_transcripts = []
 
-    for transcript in data.transcripts:
+    for transcript in transcripts:
         # Check if user exists, create if not
         user = db.query(User).filter(User.username == transcript.username).first()
         if not user:
@@ -128,7 +129,7 @@ async def create_transcripts(data: TranscriptsCreate, db: db_dependency):
         # Create transcript
         new_transcript = Transcribe(
             user_username=user.username,
-            meeting_id=data.meeting_id,
+            meeting_id=meeting_id,
             transcription_text=transcript.transcription,
             timestamp=timestamp,
             guild_id=transcript.guildId,
@@ -146,7 +147,7 @@ async def create_transcripts(data: TranscriptsCreate, db: db_dependency):
 
     return {
         "message": f"Successfully created {len(created_transcripts)} transcripts",
-        "meeting_id": data.meeting_id,
+        "meeting_id": meeting_id,
         "transcript_count": len(created_transcripts)
     }
 
