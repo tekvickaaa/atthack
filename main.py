@@ -11,6 +11,7 @@ from schemas import (
     MeetingCreateResponse,
     TranscriptItem,
     TranscribeResponse,
+    QuizResponse,
     QuizSubmission,
     QuizSubmissionResponse,
     UserQuizAttemptResponse,
