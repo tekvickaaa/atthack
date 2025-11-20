@@ -1,7 +1,10 @@
 <template>
   <div>
-    <UHeader />
     <NuxtRouteAnnouncer />
-    <NuxtWelcome />
+    <UHeader />
+    <NuxtPage />
   </div>
 </template>
+
+<script setup lang="ts">
+</script>
