@@ -367,9 +367,9 @@ async def submit_quiz(
 @app.get("/user/{username}/quiz-attempts", response_model=List[UserQuizAttemptResponse])
 async def get_user_quiz_attempts(
         username: str,
-        quiz_id: Optional[int] = None,
-        db: db_dependency = None,
-        current_user: current_user_dependency = None
+        db: db_dependency,
+        current_user: current_user_dependency,
+        quiz_id: Optional[int] = None
 ):
     """
     Get user's quiz attempt history.
