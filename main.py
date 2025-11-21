@@ -19,7 +19,8 @@ from schemas import (
     QuizWithAnswers,
     QuestionWithCorrectAnswer,
     UserMeetingEvaluationResponse,
-    ScoreBreakdown
+    ScoreBreakdown,
+    TeamMeetingEvaluationResponse
 )
 from models import User, Meeting, Transcribe
 from quiz_service import QuizService
@@ -499,4 +500,55 @@ async def evaluate_user_performance(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to evaluate user performance: {str(e)}"
+        )
+
+
+@app.get("/meeting/{meeting_id}/evaluate", response_model=TeamMeetingEvaluationResponse)
+async def evaluate_team_performance(
+    meeting_id: int,
+    db: db_dependency,
+    current_user: current_user_dependency
+):
+    """
+    Generate team-level performance evaluation for a meeting.
+    Aggregates all individual user evaluations into team statistics.
+    
+    Returns:
+    - Average scores across all evaluated participants
+    - Team-wide strengths, weaknesses, and recommendations
+    - Participant count (number of users evaluated)
+    
+    Regenerates on each request to include latest evaluations.
+    Requires at least one user to have been evaluated.
+    Requires X-User-Username header for authentication.
+    """
+    try:
+        quiz_service = QuizService(db)
+        result = await quiz_service.evaluate_team_performance(meeting_id)
+        
+        return TeamMeetingEvaluationResponse(
+            meeting_id=result["meeting_id"],
+            meeting_name=result["meeting_name"],
+            team_evaluation_score=result["team_evaluation_score"],
+            team_strengths=result["team_strengths"],
+            team_weaknesses=result["team_weaknesses"],
+            team_tips=result["team_tips"],
+            average_breakdown=ScoreBreakdown(
+                quiz_score=result["average_breakdown"]["quiz_score"],
+                participation_score=result["average_breakdown"]["participation_score"],
+                quality_score=result["average_breakdown"]["quality_score"]
+            ),
+            participant_count=result["participant_count"],
+            evaluated_at=result["evaluated_at"]
+        )
+    except ValueError as e:
+        error_msg = str(e)
+        if "not found" in error_msg or "No individual evaluations" in error_msg:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to evaluate team performance: {str(e)}"
         )

@@ -252,3 +252,75 @@ Penalize fouls heavily in quality_score. Each foul should reduce quality signifi
             raise ValueError(f"Failed to parse AI response: {e}\nResponse: {response}")
         except KeyError as e:
             raise ValueError(f"Missing required field in AI response: {e}\nResponse: {response}")
+
+    async def generate_team_evaluation(
+            self,
+            meeting_name: str,
+            meeting_description: str,
+            participant_count: int,
+            individual_evaluations: List[Dict]
+    ) -> Dict:
+        """Generate team-level evaluation by aggregating individual evaluations"""
+        # Format individual evaluation data (anonymous, no usernames)
+        eval_summaries = []
+        for idx, eval_data in enumerate(individual_evaluations, 1):
+            eval_summaries.append(
+                f"Participant {idx}:\n"
+                f"  Score: {eval_data['evaluation_score']}/100 "
+                f"(Quiz: {eval_data['quiz_score']}/30, "
+                f"Participation: {eval_data['participation_score']}/20, "
+                f"Quality: {eval_data['quality_score']}/50)\n"
+                f"  Strengths: {eval_data['strengths']}\n"
+                f"  Weaknesses: {eval_data['weaknesses']}\n"
+                f"  Tips: {eval_data['tips']}"
+            )
+        
+        eval_text = "\n\n".join(eval_summaries)
+
+        prompt = f"""You are evaluating the overall team performance in a meeting.
+
+Meeting Name: {meeting_name}
+Meeting Description: {meeting_description}
+
+Number of Participants Evaluated: {participant_count}
+
+Individual Participant Evaluations:
+{eval_text}
+
+Based on the individual evaluations above, create a comprehensive team-level analysis:
+
+1. Identify common strengths across the team
+2. Identify common weaknesses or areas for improvement
+3. Provide actionable team-level recommendations
+
+IMPORTANT: Do NOT reference specific participants by number or name. Focus on team-wide patterns and trends.
+
+Return ONLY a JSON object with this exact structure (no markdown, no explanation):
+{{
+  "team_strengths": "Description of team's collective strengths (2-4 sentences)",
+  "team_weaknesses": "Description of team's areas for improvement (2-4 sentences)",
+  "team_tips": "Actionable recommendations for the team going forward (3-5 specific tips)"
+}}
+
+Focus on patterns, trends, and collective team dynamics rather than individual performance."""
+
+        messages = [{"role": "user", "content": prompt}]
+        response = await self._call_api(messages)
+
+        # Parse JSON response
+        try:
+            # Remove markdown code blocks if present
+            cleaned = response.strip()
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+            if cleaned.startswith("```"):
+                cleaned = cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse AI response: {e}\nResponse: {response}")
+        except KeyError as e:
+            raise ValueError(f"Missing required field in AI response: {e}\nResponse: {response}")

@@ -47,6 +47,13 @@ class Meeting(Base):
     duration = Column(Interval, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())  # Meeting creation time
     owner_username = Column(String, ForeignKey('users.username'), nullable=True)
+    
+    # Team evaluation fields
+    team_evaluation_score = Column(Integer, nullable=True)  # Average score 0-100
+    team_strengths = Column(Text, nullable=True)
+    team_weaknesses = Column(Text, nullable=True)
+    team_tips = Column(Text, nullable=True)
+    team_evaluated_at = Column(DateTime(timezone=True), nullable=True)
 
     transcribes = relationship("Transcribe", backref="meeting")
     participants = relationship("Participant", backref="meeting")

@@ -409,3 +409,83 @@ class QuizService:
             "credits_earned": total_score,
             "evaluated_at": evaluation.evaluated_at
         }
+
+    async def evaluate_team_performance(self, meeting_id: int) -> Dict:
+        """
+        Generate team-level performance evaluation by aggregating all individual evaluations.
+        Accepts any number of evaluations (>=1).
+        Regenerates on each call to include latest data.
+        """
+        # Verify meeting exists
+        meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
+        if not meeting:
+            raise ValueError(f"Meeting {meeting_id} not found")
+
+        # Get all individual evaluations for this meeting
+        evaluations = self.db.query(UserMeetingEvaluation).filter(
+            UserMeetingEvaluation.meeting_id == meeting_id
+        ).all()
+
+        if not evaluations:
+            raise ValueError(f"No individual evaluations found for meeting {meeting_id}")
+
+        participant_count = len(evaluations)
+
+        # Calculate average scores
+        total_evaluation_score = sum(e.evaluation_score for e in evaluations)
+        total_quiz_score = sum(e.quiz_score for e in evaluations)
+        total_participation_score = sum(e.participation_score for e in evaluations)
+        total_quality_score = sum(e.quality_score for e in evaluations)
+
+        avg_evaluation_score = int(total_evaluation_score / participant_count)
+        avg_quiz_score = int(total_quiz_score / participant_count)
+        avg_participation_score = int(total_participation_score / participant_count)
+        avg_quality_score = int(total_quality_score / participant_count)
+
+        # Prepare evaluation data for AI (without usernames for anonymity)
+        eval_data = [
+            {
+                "evaluation_score": e.evaluation_score,
+                "strengths": e.strengths,
+                "weaknesses": e.weaknesses,
+                "tips": e.tips,
+                "quiz_score": e.quiz_score,
+                "participation_score": e.participation_score,
+                "quality_score": e.quality_score
+            }
+            for e in evaluations
+        ]
+
+        # Generate team evaluation using AI
+        ai_evaluation = await self.ai_service.generate_team_evaluation(
+            meeting_name=meeting.name,
+            meeting_description=meeting.description,
+            participant_count=participant_count,
+            individual_evaluations=eval_data
+        )
+
+        # Update meeting with team evaluation
+        meeting.team_evaluation_score = avg_evaluation_score
+        meeting.team_strengths = ai_evaluation["team_strengths"]
+        meeting.team_weaknesses = ai_evaluation["team_weaknesses"]
+        meeting.team_tips = ai_evaluation["team_tips"]
+        meeting.team_evaluated_at = datetime.now()
+
+        self.db.commit()
+        self.db.refresh(meeting)
+
+        return {
+            "meeting_id": meeting_id,
+            "meeting_name": meeting.name,
+            "team_evaluation_score": avg_evaluation_score,
+            "team_strengths": ai_evaluation["team_strengths"],
+            "team_weaknesses": ai_evaluation["team_weaknesses"],
+            "team_tips": ai_evaluation["team_tips"],
+            "average_breakdown": {
+                "quiz_score": avg_quiz_score,
+                "participation_score": avg_participation_score,
+                "quality_score": avg_quality_score
+            },
+            "participant_count": participant_count,
+            "evaluated_at": meeting.team_evaluated_at
+        }

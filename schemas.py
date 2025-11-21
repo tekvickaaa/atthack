@@ -200,3 +200,15 @@ class UserMeetingEvaluationResponse(BaseModel):
     updated_user_score: int
     credits_earned: int
     evaluated_at: datetime
+
+
+class TeamMeetingEvaluationResponse(BaseModel):
+    meeting_id: int
+    meeting_name: str
+    team_evaluation_score: int  # 0-100 average
+    team_strengths: str
+    team_weaknesses: str
+    team_tips: str
+    average_breakdown: ScoreBreakdown
+    participant_count: int
+    evaluated_at: datetime
