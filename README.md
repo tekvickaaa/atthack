@@ -6,6 +6,12 @@ A comprehensive tool that records Discord voice channels, transcribes audio usin
 
 ## ADD the bot to your server:
 - [Click here for bot invite to your Discord server](https://discord.com/oauth2/authorize?client_id=1441076928273715354&permissions=8&integration_type=0&scope=bot)
+- Here you can add hosted discord bot which will work out of the box without hosting
+
+### Discord Commands
+- `!transcribe "Meeting Name" "Meeting Description"` - Starts recording and transcribing a meeting.
+  - Example: `!transcribe "Team Standup" "Daily standup meeting for the dev team"`
+- `!stop` - Stops the recording, saves the transcript, and generates a summary.
 
 ### Frontend
 - **Framework:** Nuxt 4 (Vue 3)
@@ -26,10 +32,7 @@ A comprehensive tool that records Discord voice channels, transcribes audio usin
 - **Audio Processing:** @ricky0123/vad-node (Voice Activity Detection), Prism Media
 - **AI:** Google Generative AI (Gemini)
 
-### Discord Commands
-- `!transcribe "Meeting Name" "Meeting Description"` - Starts recording and transcribing a meeting.
-  - Example: `!transcribe "Team Standup" "Daily standup meeting for the dev team"`
-- `!stop` - Stops the recording, saves the transcript, and generates a summary.
+
 
 ### AI Models
 - **Transcription:** Gemini 2.0 Flash (Google Generative AI)
