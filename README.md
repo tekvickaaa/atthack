@@ -9,7 +9,7 @@ A comprehensive tool that records Discord voice channels, transcribes audio usin
 - Here you can add hosted discord bot which will work out of the box without hosting
 
 ### Discord Commands
-- `!transcribe "Meeting Name" "Meeting Description"` - Starts recording and transcribing a meeting.
+- `!transcribe "Meeting Name" "Meeting Description"` - Starts recording and transcribing a meeting. (You need to be in voice channel)
   - Example: `!transcribe "Team Standup" "Daily standup meeting for the dev team"`
 - `!stop` - Stops the recording, saves the transcript, and generates a summary.
 
