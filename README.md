@@ -4,6 +4,9 @@ A comprehensive tool that records Discord voice channels, transcribes audio usin
 
 ## 🛠 Tech Stack
 
+## ADD the bot to your server:
+- [Click here for bot invite to your Discord server](https://discord.com/oauth2/authorize?client_id=1441076928273715354&permissions=8&integration_type=0&scope=bot)
+
 ### Frontend
 - **Framework:** Nuxt 4 (Vue 3)
 - **UI Library:** Nuxt UI, TailwindCSS
