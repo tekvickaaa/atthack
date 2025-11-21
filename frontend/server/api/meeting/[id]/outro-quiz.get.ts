@@ -6,6 +6,7 @@ export default defineEventHandler(async (event) => {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'X-User-Username': 'alice'
       }
     })
     return data

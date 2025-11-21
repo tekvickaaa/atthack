@@ -5,29 +5,38 @@ const data = ref<any[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-const fetchQuizForMeeting = async (meetingId: number): Promise<string> => {
+const fetchQuizForMeeting = async (meetingId: number, attempts: any[]): Promise<string> => {
+  // 1. Check Intro Quiz
   try {
     const response = await fetch(`/api/meeting/${meetingId}/intro-quiz`)
     if (response.ok) {
-      const jsonData = await response.json()
-      console.log('Fetched intro quiz:', jsonData)
-      return jsonData.quiz_type || 'intro'
+      const introQuiz = await response.json()
+      // Check if user has attempted this quiz
+      const hasAttempted = attempts.some((a: any) => a.quiz_id === introQuiz.id)
+      if (!hasAttempted) {
+        return 'intro'
+      }
     }
   } catch (err) {
     console.log('No intro quiz for meeting', meetingId)
   }
 
+  // 2. Check Outro Quiz
   try {
     const response = await fetch(`/api/meeting/${meetingId}/outro-quiz`)
     if (response.ok) {
-      const jsonData = await response.json()
-      console.log('Fetched outro quiz:', jsonData)
-      return jsonData.quiz_type || 'outro'
+      const outroQuiz = await response.json()
+      // Check if user has attempted this quiz
+      const hasAttempted = attempts.some((a: any) => a.quiz_id === outroQuiz.id)
+      if (!hasAttempted) {
+        return 'outro'
+      }
     }
   } catch (err) {
     console.log('No outro quiz for meeting', meetingId)
   }
 
+  // 3. Check Summary
   try {
     const response = await fetch(`/api/meeting/${meetingId}/summary`)
     if (response.ok) {
@@ -38,13 +47,26 @@ const fetchQuizForMeeting = async (meetingId: number): Promise<string> => {
     console.log('No summary for meeting', meetingId)
   }
 
-  return 'intro'
+  // If intro is done, outro is not available (or done), and summary is not available
+  // We might want to return something else, but for now let's default to 'waiting' or null
+  // But to keep existing behavior safe, if we can't determine, maybe 'intro'?
+  // Actually, if intro is done, we shouldn't show it.
+  return 'waiting' 
 }
 
 const fetchMeetings = async () => {
   loading.value = true
   error.value = null
   try {
+    // Fetch user attempts first (assuming user is 'alice')
+    const attemptsResponse = await fetch('/api/user/alice/quiz-attempts')
+    let attempts: any[] = []
+    if (attemptsResponse.ok) {
+      attempts = await attemptsResponse.json()
+    } else {
+      console.error('Failed to fetch quiz attempts')
+    }
+
     const response = await fetch('/api/meeting')
     if (!response.ok) throw new Error('Chyba fetchovania')
 
@@ -58,7 +80,7 @@ const fetchMeetings = async () => {
     // Для каждой встречи загружаем quiz_type
     const meetingsWithQuiz: any[] = []
     for (const meeting of meetings) {
-      const quiz_type = await fetchQuizForMeeting(meeting.id)
+      const quiz_type = await fetchQuizForMeeting(meeting.id, attempts)
       meetingsWithQuiz.push({
         id: meeting.id,
         name: meeting.name,

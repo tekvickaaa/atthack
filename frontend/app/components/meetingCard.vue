@@ -17,6 +17,7 @@ const getButtonLabel = () => {
   if (props.quiz_type === 'intro') return 'Vyplniť vstupný dotazník'
   if (props.quiz_type === 'outro') return 'Vyplniť záverečný dotazník'
   if (props.quiz_type === 'sum') return 'Prezrieť zhrnutie'
+  if (props.quiz_type === 'waiting') return 'Čakanie na ukončenie'
   return 'Vyplniť vstupný dotazník'
 }
 
@@ -24,7 +25,7 @@ const getButtonLink = () => {
   if (props.quiz_type === 'intro') return `/question/${props.id}?type=intro&qN=1`
   if (props.quiz_type === 'outro') return `/question/${props.id}?type=outro&qN=1`
   if (props.quiz_type === 'sum') return `/summary/${props.id}`
-  return `/question/${props.id}?type=intro&qN=1`
+  return '#'
 }
 
 </script>
@@ -43,6 +44,7 @@ const getButtonLink = () => {
         :label="getButtonLabel()"
         size="md"
         :to="getButtonLink()"
+        :disabled="props.quiz_type === 'waiting'"
     />
   </div>
 </template>

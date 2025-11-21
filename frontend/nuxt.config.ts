@@ -4,7 +4,4 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
-  routeRules: {
-    '/api/**': { proxy: 'http://13.60.191.32:8000/**' }
-  }
 })
