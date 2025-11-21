@@ -319,7 +319,17 @@ Focus on patterns, trends, and collective team dynamics rather than individual p
                 cleaned = cleaned[:-3]
             cleaned = cleaned.strip()
 
-            return json.loads(cleaned)
+            result = json.loads(cleaned)
+            
+            # Ensure all fields are strings (AI sometimes returns arrays)
+            if isinstance(result.get("team_strengths"), list):
+                result["team_strengths"] = " ".join(result["team_strengths"])
+            if isinstance(result.get("team_weaknesses"), list):
+                result["team_weaknesses"] = " ".join(result["team_weaknesses"])
+            if isinstance(result.get("team_tips"), list):
+                result["team_tips"] = " ".join(result["team_tips"])
+            
+            return result
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse AI response: {e}\nResponse: {response}")
         except KeyError as e:
