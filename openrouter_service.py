@@ -11,7 +11,7 @@ class OpenRouterService:
             raise ValueError("OPENROUTER_API_KEY environment variable not set")
 
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
-        self.model = "anthropic/claude-3.5-sonnet"
+        self.model = "openai/gpt-oss-20b:free"
         self.timeout = 60.0
 
     async def _call_api(self, messages: List[Dict]) -> str:
