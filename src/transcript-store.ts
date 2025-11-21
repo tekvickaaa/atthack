@@ -9,6 +9,7 @@ export interface TranscriptEntry {
   timestamp: Date;
   guildId: string;
   channelId: string;
+  foul?: boolean;
 }
 
 export class TranscriptStore {
