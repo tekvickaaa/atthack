@@ -1,8 +1,7 @@
-import os
-import json
 import httpx
-from typing import List, Dict, Optional
-from datetime import datetime
+import json
+import os
+from typing import List, Dict
 
 
 class OpenRouterService:
@@ -11,25 +10,22 @@ class OpenRouterService:
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable not set")
 
-        self.base_url = "https://openrouter.ai/api/v1"
-        self.model = "openai/gpt-oss-20b:free"
+        self.base_url = "https://openrouter.ai/api/v1/chat/completions"
+        self.model = "anthropic/claude-3.5-sonnet"
         self.timeout = 60.0
 
-    async def _make_request(self, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
-        """Make async request to OpenRouter API"""
+    async def _call_api(self, messages: List[Dict]) -> str:
+        """Make API call to OpenRouter"""
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
-                f"{self.base_url}/chat/completions",
+                self.base_url,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": os.getenv("APP_URL", "http://localhost:8000"),
-                    "X-Title": "Meeting Quiz Generator"
+                    "Content-Type": "application/json"
                 },
                 json={
                     "model": self.model,
-                    "messages": messages,
-                    "temperature": temperature
+                    "messages": messages
                 }
             )
             response.raise_for_status()
@@ -37,163 +33,132 @@ class OpenRouterService:
             return data["choices"][0]["message"]["content"]
 
     async def generate_intro_quiz(self, meeting_name: str, meeting_description: str) -> Dict:
-        """
-        Generate an introductory quiz based on meeting topic.
-        Returns dict with questions array.
-        """
-        prompt = f"""Generate 5 multiple-choice questions for an introductory quiz about the following meeting:
+        """Generate intro quiz based on meeting name and description"""
+        prompt = f"""You are creating a pre-meeting quiz to prepare participants.
 
 Meeting Name: {meeting_name}
-Description: {meeting_description}
+Meeting Description: {meeting_description}
 
-Create questions that test basic knowledge and expectations about this topic. Each question should have 4 possible answers with exactly one correct answer.
+Create exactly 5 multiple-choice questions that will help participants prepare for this meeting.
+Each question should have exactly 4 answer options.
 
-Return ONLY valid JSON in this exact format with no markdown, no backticks, no preamble:
+Return ONLY a JSON object with this exact structure (no markdown, no explanation):
 {{
   "questions": [
     {{
-      "question_text": "Question text here?",
-      "answers": [
-        "Answer option 1",
-        "Answer option 2",
-        "Answer option 3",
-        "Answer option 4"
-      ],
-      "correct_answer_index": 0
+      "question_text": "What is...",
+      "correct_answer_index": 0,
+      "answers": ["Answer 1", "Answer 2", "Answer 3", "Answer 4"]
     }}
   ]
 }}
 
-Ensure:
-- Exactly 5 questions
-- Each question has exactly 4 answers
-- correct_answer_index is 0, 1, 2, or 3
-- Questions are relevant to the meeting topic
-- Mix of difficulty levels"""
+Make questions relevant, educational, and varied in difficulty."""
 
         messages = [{"role": "user", "content": prompt}]
-        response_text = await self._make_request(messages, temperature=0.7)
+        response = await self._call_api(messages)
 
-        # Clean response and parse JSON
-        response_text = response_text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-        response_text = response_text.strip()
-
+        # Parse JSON response
         try:
-            quiz_data = json.loads(response_text)
-            self._validate_quiz_structure(quiz_data)
-            return quiz_data
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON response from AI: {e}")
+            # Remove markdown code blocks if present
+            cleaned = response.strip()
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+            if cleaned.startswith("```"):
+                cleaned = cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
 
-    async def generate_outro_quiz_and_summary(
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse AI response: {e}\nResponse: {response}")
+
+    async def generate_summary_from_transcripts(
             self,
             meeting_name: str,
+            meeting_description: str,
             transcripts: List[Dict]
-    ) -> Dict:
-        """
-        Generate an outro quiz and summary based on meeting transcripts.
-        Returns dict with questions array and summary_points string.
-        """
-        # Format transcripts for prompt
-        transcript_text = self._format_transcripts(transcripts)
+    ) -> str:
+        """Generate meeting summary from transcripts"""
+        # Format transcripts for the prompt
+        transcript_text = "\n".join([
+            f"[{t['timestamp']}] {t['user_username']}: {t['transcription_text']}"
+            for t in transcripts
+        ])
 
-        prompt = f"""Analyze the following meeting transcripts and generate:
-1. A summary of key points (5-7 bullet points)
-2. 5 multiple-choice questions testing understanding of what was discussed
+        prompt = f"""You are creating a comprehensive summary of a meeting.
 
 Meeting Name: {meeting_name}
+Meeting Description: {meeting_description}
 
-Transcripts:
+Meeting Transcripts:
 {transcript_text}
 
-Return ONLY valid JSON in this exact format with no markdown, no backticks, no preamble:
+Based on the transcripts above, create a concise summary with 5-7 bullet points covering the main topics discussed, key decisions made, and important takeaways.
+
+Return ONLY the bullet points in this format (no JSON, just plain text):
+• First main point
+• Second main point
+• Third main point
+• Fourth main point
+• Fifth main point
+• Sixth main point (if applicable)
+• Seventh main point (if applicable)
+
+Focus on the most important information from the actual discussion."""
+
+        messages = [{"role": "user", "content": prompt}]
+        response = await self._call_api(messages)
+
+        return response.strip()
+
+    async def generate_outro_quiz_from_summary(
+            self,
+            meeting_name: str,
+            meeting_description: str,
+            summary_points: str
+    ) -> Dict:
+        """Generate outro quiz based on meeting summary"""
+        prompt = f"""You are creating a post-meeting quiz to test participant understanding.
+
+Meeting Name: {meeting_name}
+Meeting Description: {meeting_description}
+
+Meeting Summary:
+{summary_points}
+
+Based on the summary above, create exactly 5 multiple-choice questions that test understanding of what was discussed in the meeting.
+Each question should have exactly 4 answer options.
+
+Return ONLY a JSON object with this exact structure (no markdown, no explanation):
 {{
-  "summary_points": "• Key point 1\\n• Key point 2\\n• Key point 3\\n• Key point 4\\n• Key point 5",
   "questions": [
     {{
-      "question_text": "Question text here?",
-      "answers": [
-        "Answer option 1",
-        "Answer option 2",
-        "Answer option 3",
-        "Answer option 4"
-      ],
-      "correct_answer_index": 0
+      "question_text": "What was discussed about...",
+      "correct_answer_index": 0,
+      "answers": ["Answer 1", "Answer 2", "Answer 3", "Answer 4"]
     }}
   ]
 }}
 
-Ensure:
-- Summary has 5-7 bullet points separated by \\n
-- Exactly 5 questions
-- Each question has exactly 4 answers
-- correct_answer_index is 0, 1, 2, or 3
-- Questions test comprehension of actual meeting content
-- Mix of detail and big-picture questions"""
+Make questions specific to the actual content discussed in the meeting."""
 
         messages = [{"role": "user", "content": prompt}]
-        response_text = await self._make_request(messages, temperature=0.7)
+        response = await self._call_api(messages)
 
-        # Clean response and parse JSON
-        response_text = response_text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-        response_text = response_text.strip()
-
+        # Parse JSON response
         try:
-            quiz_data = json.loads(response_text)
-            self._validate_quiz_structure(quiz_data, require_summary=True)
-            return quiz_data
+            # Remove markdown code blocks if present
+            cleaned = response.strip()
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+            if cleaned.startswith("```"):
+                cleaned = cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+
+            return json.loads(cleaned)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON response from AI: {e}")
-
-    def _format_transcripts(self, transcripts: List[Dict]) -> str:
-        """Format transcripts for AI prompt"""
-        formatted = []
-        for t in transcripts:
-            timestamp = t.get('timestamp', 'Unknown time')
-            if isinstance(timestamp, datetime):
-                timestamp = timestamp.strftime('%Y-%m-%d %H:%M:%S')
-
-            username = t.get('user_username', t.get('username', 'Unknown'))
-            text = t.get('transcription_text', t.get('transcription', ''))
-
-            formatted.append(f"[{timestamp}] {username}: {text}")
-
-        return "\n".join(formatted)
-
-    def _validate_quiz_structure(self, quiz_data: Dict, require_summary: bool = False):
-        """Validate the quiz data structure"""
-        if "questions" not in quiz_data:
-            raise ValueError("Response missing 'questions' field")
-
-        if require_summary and "summary_points" not in quiz_data:
-            raise ValueError("Response missing 'summary_points' field")
-
-        questions = quiz_data["questions"]
-        if len(questions) != 5:
-            raise ValueError(f"Expected 5 questions, got {len(questions)}")
-
-        for i, q in enumerate(questions):
-            if "question_text" not in q:
-                raise ValueError(f"Question {i} missing 'question_text'")
-            if "answers" not in q:
-                raise ValueError(f"Question {i} missing 'answers'")
-            if "correct_answer_index" not in q:
-                raise ValueError(f"Question {i} missing 'correct_answer_index'")
-
-            if len(q["answers"]) != 4:
-                raise ValueError(f"Question {i} must have exactly 4 answers")
-
-            if not (0 <= q["correct_answer_index"] <= 3):
-                raise ValueError(f"Question {i} correct_answer_index must be 0-3")
+            raise ValueError(f"Failed to parse AI response: {e}\nResponse: {response}")

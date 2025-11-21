@@ -41,57 +41,6 @@ class QuizService:
             summary_points=None
         )
 
-    async def get_or_create_outro_quiz(self, meeting_id: int) -> Quiz:
-        """Get existing outro quiz or create new one based on transcripts"""
-        # Check if outro quiz already exists
-        existing_quiz = self.db.query(Quiz).filter(
-            Quiz.meeting_id == meeting_id,
-            Quiz.quiz_type == QuizType.outro
-        ).first()
-
-        if existing_quiz:
-            return existing_quiz
-
-        # Get meeting info
-        meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
-        if not meeting:
-            raise ValueError(f"Meeting {meeting_id} not found")
-
-        # Get transcripts
-        transcripts = self.db.query(Transcribe).filter(
-            Transcribe.meeting_id == meeting_id
-        ).order_by(Transcribe.timestamp.asc()).all()
-
-        if not transcripts:
-            raise ValueError(f"No transcripts found for meeting {meeting_id}")
-
-        # Convert to dict for AI service
-        transcript_dicts = [
-            {
-                "user_username": t.user_username,
-                "transcription_text": t.transcription_text,
-                "timestamp": t.timestamp
-            }
-            for t in transcripts
-        ]
-
-        # Generate quiz and summary using AI
-        quiz_data = await self.ai_service.generate_outro_quiz_and_summary(
-            meeting.name,
-            transcript_dicts
-        )
-
-        # Update meeting summary
-        meeting.summary = quiz_data.get("summary_points")
-
-        # Create quiz in database
-        return self._create_quiz_from_data(
-            meeting_id=meeting_id,
-            quiz_type=QuizType.outro,
-            quiz_data=quiz_data,
-            summary_points=quiz_data.get("summary_points")
-        )
-
     def _create_quiz_from_data(
             self,
             meeting_id: int,
@@ -213,21 +162,85 @@ class QuizService:
 
         return query.order_by(desc(UserQuizAttempt.completed_at)).all()
 
-    def get_meeting_summary(self, meeting_id: int) -> Optional[Dict]:
-        """Get meeting summary from outro quiz"""
+    async def generate_meeting_summary(self, meeting_id: int) -> Dict:
+        """Generate summary from transcripts and save to meeting"""
         meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
         if not meeting:
-            return None
+            raise ValueError(f"Meeting {meeting_id} not found")
 
-        outro_quiz = self.db.query(Quiz).filter(
-            Quiz.meeting_id == meeting_id,
-            Quiz.quiz_type == QuizType.outro
-        ).first()
+        # Get transcripts
+        transcripts = self.db.query(Transcribe).filter(
+            Transcribe.meeting_id == meeting_id
+        ).order_by(Transcribe.timestamp.asc()).all()
+
+        if not transcripts:
+            raise ValueError(f"No transcripts found for meeting {meeting_id}")
+
+        # Convert to dict for AI service
+        transcript_dicts = [
+            {
+                "user_username": t.user_username,
+                "transcription_text": t.transcription_text,
+                "timestamp": t.timestamp
+            }
+            for t in transcripts
+        ]
+
+        # Generate summary using AI
+        summary_points = await self.ai_service.generate_summary_from_transcripts(
+            meeting.name,
+            meeting.description,
+            transcript_dicts
+        )
+
+        # Save summary to meeting
+        meeting.summary = summary_points
+        self.db.commit()
+        self.db.refresh(meeting)
 
         return {
             "meeting_id": meeting_id,
             "meeting_name": meeting.name,
-            "summary_points": outro_quiz.summary_points if outro_quiz else None,
-            "generated_at": outro_quiz.generated_at if outro_quiz else None,
-            "has_outro_quiz": outro_quiz is not None
+            "meeting_description": meeting.description,
+            "summary_points": summary_points,
+            "generated_at": datetime.now(),
+            "has_summary": True,
+            "transcript_count": len(transcripts)
         }
+
+    async def get_or_create_outro_quiz(self, meeting_id: int) -> Quiz:
+        """Get existing outro quiz or create new one based on summary"""
+        # Check if outro quiz already exists
+        existing_quiz = self.db.query(Quiz).filter(
+            Quiz.meeting_id == meeting_id,
+            Quiz.quiz_type == QuizType.outro
+        ).first()
+
+        if existing_quiz:
+            return existing_quiz
+
+        # Get meeting info
+        meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
+        if not meeting:
+            raise ValueError(f"Meeting {meeting_id} not found")
+
+        # Check if summary exists, if not generate it
+        if not meeting.summary:
+            # Generate summary first
+            await self.generate_meeting_summary(meeting_id)
+            self.db.refresh(meeting)
+
+        # Generate quiz based on summary
+        quiz_data = await self.ai_service.generate_outro_quiz_from_summary(
+            meeting.name,
+            meeting.description,
+            meeting.summary
+        )
+
+        # Create quiz in database
+        return self._create_quiz_from_data(
+            meeting_id=meeting_id,
+            quiz_type=QuizType.outro,
+            quiz_data=quiz_data,
+            summary_points=meeting.summary
+        )
