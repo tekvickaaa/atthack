@@ -36,7 +36,7 @@ class TranscribeResponse(BaseSchema):
     timestamp: datetime
     guild_id: Optional[str] = None
     channel_id: Optional[str] = None
-    faul: bool
+    foul: bool
     created_at: datetime
 
 class MeetingResponse(BaseSchema):
