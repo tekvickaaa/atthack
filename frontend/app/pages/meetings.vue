@@ -21,14 +21,16 @@ const fetchMeetings = async () => {
   loading.value = true
   error.value = null
   try {
-    const response = await fetch('http://13.60.191.32:8000/meeting/', {
+    const response = await fetch('/api/meeting', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     })
     if (!response.ok) throw new Error('Chyba fetchovania')
-    data.value = await response.json()
+    const jsonData = await response.json()
+    console.log('Fetched meetings data:', jsonData)
+    data.value = jsonData
   } catch (err: any) {
     error.value = err.message
   } finally {
@@ -53,9 +55,9 @@ onMounted(() => {
         <MeetingCard
           v-for="meeting in data"
           :key="meeting.id"
-          :meetingId="meeting.id"
-          :meetingTitle="meeting.name"
-          :meetingDescription="meeting.description"
+          :id="meeting.id"
+          :name="meeting.name"
+          :description="meeting.description"
         />
       </div>
       <div v-else class="text-gray-500">

@@ -3,5 +3,8 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxt/ui'],
-  css: ['~/assets/css/main.css']
+  css: ['~/assets/css/main.css'],
+  routeRules: {
+    '/api/**': { proxy: 'http://13.60.191.32:8000/**' }
+  }
 })
