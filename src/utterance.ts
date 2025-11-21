@@ -283,6 +283,7 @@ Reply with JSON only: {"relevant": boolean, "chatWarning": "short warning text f
             timestamp: new Date(),
             guildId: this.guildId,
             channelId: this.channelId,
+            foul: !relevancy.relevant,
           });
           
           logger.debug(`Saved transcript for user ${this.userId}`);

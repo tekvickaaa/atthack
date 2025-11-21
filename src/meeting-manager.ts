@@ -106,7 +106,8 @@ class MeetingManager {
           transcription: t.transcription,
           timestamp: t.timestamp.toISOString(),
           guildId: t.guildId,
-          channelId: t.channelId
+          channelId: t.channelId,
+          foul: t.foul
         }))),
       });
 
