@@ -11,13 +11,15 @@ from schemas import (
     MeetingCreateResponse,
     TranscriptItem,
     TranscribeResponse,
-QuizResponse,
+    QuizResponse,
     QuizSubmission,
     QuizSubmissionResponse,
     UserQuizAttemptResponse,
     MeetingSummaryResponse,
     QuizWithAnswers,
-    QuestionWithCorrectAnswer
+    QuestionWithCorrectAnswer,
+    UserMeetingEvaluationResponse,
+    ScoreBreakdown
 )
 from models import User, Meeting, Transcribe
 from quiz_service import QuizService
@@ -395,3 +397,59 @@ async def get_quiz(quiz_id: int, db: db_dependency):
         )
 
     return quiz
+
+
+# ============================================================================
+# PERFORMANCE EVALUATION ENDPOINT
+# ============================================================================
+
+@app.post("/meeting/{meeting_id}/evaluate/{username}", response_model=UserMeetingEvaluationResponse)
+async def evaluate_user_performance(meeting_id: int, username: str, db: db_dependency):
+    """
+    Generate performance evaluation for a user in a specific meeting.
+    Evaluates based on:
+    - Outro quiz score (0-30 points)
+    - Participation quality (0-50 points) - AI analyzes transcript relevance
+    - Engagement level (0-20 points) - AI evaluates contribution quantity
+    
+    Total score: 0-100 points
+    - Adds score to user's credits
+    - Updates user's rolling average score
+    - Can only be run once per user-meeting combination
+    """
+    try:
+        quiz_service = QuizService(db)
+        result = await quiz_service.evaluate_user_performance(meeting_id, username)
+        
+        return UserMeetingEvaluationResponse(
+            meeting_id=result["meeting_id"],
+            meeting_name=result["meeting_name"],
+            username=result["username"],
+            evaluation_score=result["evaluation_score"],
+            strengths=result["strengths"],
+            weaknesses=result["weaknesses"],
+            tips=result["tips"],
+            breakdown=ScoreBreakdown(
+                quiz_score=result["breakdown"]["quiz_score"],
+                participation_score=result["breakdown"]["participation_score"],
+                quality_score=result["breakdown"]["quality_score"]
+            ),
+            meetings_attended=result["meetings_attended"],
+            updated_user_score=result["updated_user_score"],
+            credits_earned=result["credits_earned"],
+            evaluated_at=result["evaluated_at"]
+        )
+    except ValueError as e:
+        # Handle specific error cases
+        error_msg = str(e)
+        if "already been evaluated" in error_msg:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error_msg)
+        elif "not found" in error_msg or "has no transcripts" in error_msg or "has not completed" in error_msg:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to evaluate user performance: {str(e)}"
+        )

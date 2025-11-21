@@ -111,3 +111,23 @@ class UserQuizAttempt(Base):
 
     user = relationship("User", backref="quiz_attempts")
     quiz = relationship("Quiz", backref="attempts")
+
+
+class UserMeetingEvaluation(Base):
+    __tablename__ = 'user_meeting_evaluations'
+    __table_args__ = (UniqueConstraint('user_username', 'meeting_id', name='_user_meeting_eval_uc'),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_username = Column(String, ForeignKey('users.username'), nullable=False)
+    meeting_id = Column(Integer, ForeignKey('meetings.id'), nullable=False)
+    evaluation_score = Column(Integer, nullable=False)  # 0-100
+    strengths = Column(Text, nullable=False)
+    weaknesses = Column(Text, nullable=False)
+    tips = Column(Text, nullable=False)
+    quiz_score = Column(Integer, nullable=False)  # 0-30 points
+    participation_score = Column(Integer, nullable=False)  # 0-20 points
+    quality_score = Column(Integer, nullable=False)  # 0-50 points
+    evaluated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", backref="meeting_evaluations")
+    meeting = relationship("Meeting", backref="evaluations")

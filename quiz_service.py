@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import Optional, List, Dict
-from models import Quiz, Question, Answer, UserQuizAttempt, Meeting, Transcribe, QuizType
+from models import Quiz, Question, Answer, UserQuizAttempt, Meeting, Transcribe, QuizType, User, UserMeetingEvaluation
 from openrouter_service import OpenRouterService
 from datetime import datetime
 
@@ -244,3 +244,147 @@ class QuizService:
             quiz_data=quiz_data,
             summary_points=meeting.summary
         )
+
+    async def evaluate_user_performance(self, meeting_id: int, username: str) -> Dict:
+        """
+        Generate performance evaluation for a user in a specific meeting.
+        Only runs once per user-meeting combination.
+        Calculates score (0-100), updates user credits and rolling average score.
+        """
+        # Check if evaluation already exists
+        existing_eval = self.db.query(UserMeetingEvaluation).filter(
+            UserMeetingEvaluation.meeting_id == meeting_id,
+            UserMeetingEvaluation.user_username == username
+        ).first()
+
+        if existing_eval:
+            raise ValueError(f"User {username} has already been evaluated for meeting {meeting_id}")
+
+        # Verify meeting exists
+        meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
+        if not meeting:
+            raise ValueError(f"Meeting {meeting_id} not found")
+
+        # Verify user exists
+        user = self.db.query(User).filter(User.username == username).first()
+        if not user:
+            raise ValueError(f"User {username} not found")
+
+        # Get user's transcripts for this meeting
+        user_transcripts = self.db.query(Transcribe).filter(
+            Transcribe.meeting_id == meeting_id,
+            Transcribe.user_username == username
+        ).order_by(Transcribe.timestamp.asc()).all()
+
+        if not user_transcripts:
+            raise ValueError(f"User {username} has no transcripts for meeting {meeting_id}")
+
+        # Calculate foul count
+        foul_count = sum(1 for t in user_transcripts if t.foul)
+        total_transcripts = len(user_transcripts)
+
+        # Get outro quiz score for this meeting
+        outro_quiz = self.db.query(Quiz).filter(
+            Quiz.meeting_id == meeting_id,
+            Quiz.quiz_type == QuizType.outro
+        ).first()
+
+        if not outro_quiz:
+            raise ValueError(f"No outro quiz found for meeting {meeting_id}")
+
+        # Get user's quiz attempt
+        quiz_attempt = self.db.query(UserQuizAttempt).filter(
+            UserQuizAttempt.user_username == username,
+            UserQuizAttempt.quiz_id == outro_quiz.id
+        ).first()
+
+        if not quiz_attempt:
+            raise ValueError(f"User {username} has not completed the outro quiz for meeting {meeting_id}")
+
+        # Calculate quiz percentage
+        quiz_percentage = (quiz_attempt.score / quiz_attempt.total_questions) * 100
+
+        # Calculate quiz score component (0-30 points)
+        quiz_score = int((quiz_percentage / 100) * 30)
+
+        # Prepare transcript data for AI
+        transcript_dicts = [
+            {
+                "transcription_text": t.transcription_text,
+                "timestamp": t.timestamp.isoformat()
+            }
+            for t in user_transcripts
+        ]
+
+        # Generate AI evaluation
+        ai_evaluation = await self.ai_service.generate_user_performance_evaluation(
+            username=username,
+            meeting_name=meeting.name,
+            meeting_description=meeting.description,
+            user_transcripts=transcript_dicts,
+            foul_count=foul_count,
+            total_transcripts=total_transcripts,
+            quiz_percentage=quiz_percentage
+        )
+
+        participation_score = ai_evaluation["participation_score"]
+        quality_score = ai_evaluation["quality_score"]
+        strengths = ai_evaluation["strengths"]
+        weaknesses = ai_evaluation["weaknesses"]
+        tips = ai_evaluation["tips"]
+
+        # Calculate total evaluation score (0-100)
+        total_score = quiz_score + participation_score + quality_score
+
+        # Count meetings attended (based on outro quiz attempts)
+        meetings_attended = self.db.query(UserQuizAttempt).join(Quiz).filter(
+            UserQuizAttempt.user_username == username,
+            Quiz.quiz_type == QuizType.outro
+        ).count() + 1  # +1 for current meeting
+
+        # Calculate new rolling average score
+        if meetings_attended == 1:
+            new_average_score = total_score
+        else:
+            new_average_score = ((meetings_attended - 1) * user.score + total_score) / meetings_attended
+
+        # Update user's score and credits
+        user.score = int(new_average_score)
+        user.credits += total_score
+
+        # Save evaluation
+        evaluation = UserMeetingEvaluation(
+            user_username=username,
+            meeting_id=meeting_id,
+            evaluation_score=total_score,
+            strengths=strengths,
+            weaknesses=weaknesses,
+            tips=tips,
+            quiz_score=quiz_score,
+            participation_score=participation_score,
+            quality_score=quality_score
+        )
+
+        self.db.add(evaluation)
+        self.db.commit()
+        self.db.refresh(evaluation)
+        self.db.refresh(user)
+
+        return {
+            "meeting_id": meeting_id,
+            "meeting_name": meeting.name,
+            "username": username,
+            "evaluation_score": total_score,
+            "strengths": strengths,
+            "weaknesses": weaknesses,
+            "tips": tips,
+            "breakdown": {
+                "quiz_score": quiz_score,
+                "participation_score": participation_score,
+                "quality_score": quality_score
+            },
+            "meetings_attended": meetings_attended,
+            "updated_user_score": user.score,
+            "credits_earned": total_score,
+            "evaluated_at": evaluation.evaluated_at
+        }

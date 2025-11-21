@@ -178,3 +178,25 @@ class MeetingSummaryResponse(BaseModel):
     generated_at: Optional[datetime] = None
     has_summary: bool
     transcript_count: Optional[int] = None
+
+
+# User meeting evaluation schemas
+class ScoreBreakdown(BaseModel):
+    quiz_score: int  # 0-30
+    participation_score: int  # 0-20
+    quality_score: int  # 0-50
+
+
+class UserMeetingEvaluationResponse(BaseModel):
+    meeting_id: int
+    meeting_name: str
+    username: str
+    evaluation_score: int  # 0-100 total
+    strengths: str
+    weaknesses: str
+    tips: str
+    breakdown: ScoreBreakdown
+    meetings_attended: int
+    updated_user_score: int
+    credits_earned: int
+    evaluated_at: datetime
