@@ -438,7 +438,7 @@ async def get_quiz(quiz_id: int, db: db_dependency):
 # PERFORMANCE EVALUATION ENDPOINT
 # ============================================================================
 
-@app.post("/meeting/{meeting_id}/evaluate/{username}", response_model=UserMeetingEvaluationResponse)
+@app.get("/meeting/{meeting_id}/evaluate/{username}", response_model=UserMeetingEvaluationResponse)
 async def evaluate_user_performance(
     meeting_id: int, 
     username: str, 
@@ -446,16 +446,17 @@ async def evaluate_user_performance(
     current_user: current_user_dependency
 ):
     """
-    Generate performance evaluation for a user in a specific meeting.
-    Evaluates based on:
+    Get or generate performance evaluation for a user in a specific meeting.
+    
+    If evaluation already exists, returns the existing evaluation.
+    If not, generates a new evaluation based on:
     - Outro quiz score (0-30 points)
     - Participation quality (0-50 points) - AI analyzes transcript relevance
     - Engagement level (0-20 points) - AI evaluates contribution quantity
     
     Total score: 0-100 points
-    - Adds score to user's credits
-    - Updates user's rolling average score
-    - Can only be run once per user-meeting combination
+    - On first evaluation: adds score to user's credits and updates rolling average
+    - On subsequent calls: returns existing evaluation data
     Requires X-User-Username header for authentication.
     """
     # Verify the evaluation is for the authenticated user
@@ -490,9 +491,7 @@ async def evaluate_user_performance(
     except ValueError as e:
         # Handle specific error cases
         error_msg = str(e)
-        if "already been evaluated" in error_msg:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error_msg)
-        elif "not found" in error_msg or "has no transcripts" in error_msg or "has not completed" in error_msg:
+        if "not found" in error_msg or "has no transcripts" in error_msg or "has not completed" in error_msg:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)

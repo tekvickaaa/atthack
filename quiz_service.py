@@ -269,7 +269,7 @@ class QuizService:
     async def evaluate_user_performance(self, meeting_id: int, username: str) -> Dict:
         """
         Generate performance evaluation for a user in a specific meeting.
-        Only runs once per user-meeting combination.
+        Returns existing evaluation if already exists, otherwise generates new one.
         Calculates score (0-100), updates user credits and rolling average score.
         """
         # Check if evaluation already exists
@@ -279,7 +279,34 @@ class QuizService:
         ).first()
 
         if existing_eval:
-            raise ValueError(f"User {username} has already been evaluated for meeting {meeting_id}")
+            # Return existing evaluation
+            meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
+            user = self.db.query(User).filter(User.username == username).first()
+            
+            # Count meetings attended
+            meetings_attended = self.db.query(UserQuizAttempt).join(Quiz).filter(
+                UserQuizAttempt.user_username == username,
+                Quiz.quiz_type == QuizType.outro
+            ).count()
+            
+            return {
+                "meeting_id": meeting_id,
+                "meeting_name": meeting.name,
+                "username": username,
+                "evaluation_score": existing_eval.evaluation_score,
+                "strengths": existing_eval.strengths,
+                "weaknesses": existing_eval.weaknesses,
+                "tips": existing_eval.tips,
+                "breakdown": {
+                    "quiz_score": existing_eval.quiz_score,
+                    "participation_score": existing_eval.participation_score,
+                    "quality_score": existing_eval.quality_score
+                },
+                "meetings_attended": meetings_attended,
+                "updated_user_score": user.score,
+                "credits_earned": existing_eval.evaluation_score,
+                "evaluated_at": existing_eval.evaluated_at
+            }
 
         # Verify meeting exists
         meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
