@@ -1,51 +1,44 @@
 <script setup lang="ts">
-
-interface MeetingProps {
-  meetingId: string;
-  meetingTitle: string;
-  meetingDescription: string;
-  meetingDetails: string[];
-  buttonAction: "Intro" | "Outro" | "Sum";
+interface fetchedMeetingProps {
+  "id": number,
+  "name": string,
+  "description": string,
+  "temp_meeting_id": null,
+  "summary": string,
+  "begins_at": string,
+  "duration": string,
+  "created_at": string,
+  "owner_username": string
 }
 
-const meetings: MeetingProps[] = [
-  {
-    meetingId: "m1",
-    meetingTitle: "Úvodná porada",
-    meetingDescription: "Diskusia o pláne projektu.",
-    meetingDetails: ["Ciele", "Časová os", "Členovia tímu"],
-    buttonAction: "Intro"
-  },
-  {
-    meetingId: "m2",
-    meetingTitle: "Technický workshop",
-    meetingDescription: "Prezentácia architektúry systému.",
-    meetingDetails: ["API", "Databáza", "Backend"],
-    buttonAction: "Sum"
-  },
-  {
-    meetingId: "m3",
-    meetingTitle: "Marketing meeting",
-    meetingDescription: "Plánovanie kampane.",
-    meetingDetails: ["Kanály", "Rozpočet", "Cieľová skupina"],
-    buttonAction: "Outro"
-  },
-  {
-    meetingId: "m4",
-    meetingTitle: "Sprint planning",
-    meetingDescription: "Rozdelenie úloh na sprint.",
-    meetingDetails: ["Story points", "Tasks", "Priority"],
-    buttonAction: "Intro"
-  },
-  {
-    meetingId: "m5",
-    meetingTitle: "Retrospektíva",
-    meetingDescription: "Zhodnotenie predošlého sprintu.",
-    meetingDetails: ["Čo šlo dobre", "Čo zlepšiť", "Action items"],
-    buttonAction: "Sum"
-  }
-];
+import { ref, onMounted } from 'vue'
 
+const data = ref(null)
+const loading = ref(false)
+const error = ref(null)
+
+const fetchMeetings = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const response = await fetch('http://13.60.191.32:8000/meeting/', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!response.ok) throw new Error('Chyba fetchovania')
+    data.value = await response.json()
+  } catch (err: any) {
+    error.value = err.message
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchMeetings()
+})
 </script>
 
 <template>
@@ -54,16 +47,19 @@ const meetings: MeetingProps[] = [
       <h1 class="text-3xl font-bold ">
         Meetings Page
       </h1>
-      <div class="rounded-2xl border border-gray-200 pt-5 h-full overflow-hidden flex flex-col gap-5">
+      <div v-if="loading">Načítavam...</div>
+      <div v-else-if="error">Chyba: {{ error.message || 'Nepodarilo sa načítať dáta' }}</div>
+      <div v-else-if="data && data.length > 0" class="rounded-2xl border border-gray-200 pt-5 h-full overflow-hidden flex flex-col gap-5">
         <MeetingCard
-          v-for="meeting in meetings"
-          :key="meeting.meetingId"
-          :meetingId="meeting.meetingId"
-          :meetingTitle="meeting.meetingTitle"
-          :meetingDescription="meeting.meetingDescription"
-          :meetingDetails="meeting.meetingDetails"
-          :buttonAction="meeting.buttonAction"
+          v-for="meeting in data"
+          :key="meeting.id"
+          :meetingId="meeting.id"
+          :meetingTitle="meeting.name"
+          :meetingDescription="meeting.description"
         />
+      </div>
+      <div v-else class="text-gray-500">
+        Žiadne stretnutia
       </div>
     </div>
   </UContainer>
