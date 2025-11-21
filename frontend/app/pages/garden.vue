@@ -6,7 +6,7 @@ import { useCredit } from '~/composables/useCredit'
 
 
 const pixiContainer = ref<HTMLElement | null>(null)
-const { credits } = useCredit()
+const { credits, fetchCredits } = useCredit()
 const { loadState, saveState } = useGameState()
 const gameState = ref(loadState())
 
@@ -530,6 +530,7 @@ function resizeApp() {
 }
 
 onMounted(async () => {
+  fetchCredits()
   app = new Application()
   await app.init({ width: window.innerWidth, height: window.innerHeight, backgroundAlpha: 0 })
 
