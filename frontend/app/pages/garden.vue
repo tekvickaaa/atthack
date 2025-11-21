@@ -6,7 +6,7 @@ import { useCredit } from '~/composables/useCredit'
 
 
 const pixiContainer = ref<HTMLElement | null>(null)
-const { credits, fetchCredits } = useCredit()
+const { credits, fetchCredits, subtractCredits } = useCredit()
 const { loadState, saveState } = useGameState()
 const gameState = ref(loadState())
 
@@ -530,7 +530,7 @@ function resizeApp() {
 }
 
 onMounted(async () => {
-  fetchCredits()
+  await fetchCredits()
   app = new Application()
   await app.init({ width: window.innerWidth, height: window.innerHeight, backgroundAlpha: 0 })
 
@@ -868,6 +868,14 @@ onMounted(async () => {
     // Place new sprite
     if (['food', 'broom', 'pet', 'eraser'].includes(selectedType.value)) return
     
+    const cost = decorationCosts[selectedType.value] || 0
+
+    // Check credits
+    if (cost > 0 && credits.value < cost) {
+      spawnFloatingText(x, y, `Need ${cost} credits!`, '#FF0000')
+      return
+    }
+
     // Check house limit (only limited by credits, not buildLimit)
     if (selectedType.value === 'house') {
       const currentHouses = gameState.value.sprites.filter(s => s.type === 'house').length
@@ -917,6 +925,12 @@ onMounted(async () => {
 
     gardenContainer!.addChild(sprite)
     spriteMap.set(newId, sprite)
+
+    // Deduct credits
+    if (cost > 0) {
+      subtractCredits(cost)
+      spawnFloatingText(x, y, `-${cost} credits`, '#FF0000')
+    }
 
     const animals = ['sheep', 'cow', 'chicken', 'pig']
     const newSpriteData: SpriteData = {
@@ -982,7 +996,10 @@ onBeforeUnmount(() => {
           style="width: 48px; height: 48px;"
         >
           <img :src="type.img" :alt="type.label" style="width: 32px; height: 32px; object-fit: contain;" />
-          <span class="text-[10px] mt-0.5 text-green-800 leading-none">{{ type.label }}</span>
+          <span class="text-[10px] mt-0.5 text-green-800 leading-none flex flex-col items-center">
+            <span>{{ type.label }}</span>
+            <span v-if="type.cost > 0" class="text-[8px] text-blue-600 font-bold">{{ type.cost }}cr</span>
+          </span>
         </button>
       </div>
       
@@ -1027,7 +1044,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="mb-1 text-green-500 text-[10px] text-center px-4 pointer-events-auto">
+      <div class="mb-1 text-black text-[10px] text-center px-4 pointer-events-auto">
         Click IDLE items to start production • Click READY items to collect
       </div>
 
