@@ -205,10 +205,15 @@ async def get_meeting_transcripts(meeting_id: int, db: db_dependency):
 # ============================================================================
 
 @app.get("/meeting/{meeting_id}/intro-quiz", response_model=QuizResponse)
-async def get_intro_quiz(meeting_id: int, db: db_dependency):
+async def get_intro_quiz(
+    meeting_id: int, 
+    db: db_dependency,
+    current_user: current_user_dependency
+):
     """
     Get or generate intro quiz for a meeting.
     Returns quiz without correct answers.
+    Requires X-User-Username header for authentication.
     """
     try:
         quiz_service = QuizService(db)
@@ -224,11 +229,16 @@ async def get_intro_quiz(meeting_id: int, db: db_dependency):
 
 
 @app.get("/meeting/{meeting_id}/outro-quiz", response_model=QuizResponse)
-async def get_outro_quiz(meeting_id: int, db: db_dependency):
+async def get_outro_quiz(
+    meeting_id: int, 
+    db: db_dependency,
+    current_user: current_user_dependency
+):
     """
     Get or generate outro quiz for a meeting based on transcripts.
     Returns quiz without correct answers.
     Requires transcripts to exist.
+    Requires X-User-Username header for authentication.
     """
     try:
         quiz_service = QuizService(db)
