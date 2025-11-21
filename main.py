@@ -23,6 +23,7 @@ from schemas import (
 )
 from models import User, Meeting, Transcribe
 from quiz_service import QuizService
+from auth import get_current_user
 
 
 @asynccontextmanager
@@ -44,6 +45,7 @@ def get_db():
 
 
 db_dependency = Annotated[Session, Depends(get_db)]
+current_user_dependency = Annotated[User, Depends(get_current_user)]
 
 
 @app.get("/")
@@ -277,11 +279,24 @@ async def generate_meeting_summary(meeting_id: int, db: db_dependency):
         )
 
 @app.post("/quiz/{quiz_id}/submit", response_model=QuizSubmissionResponse)
-async def submit_quiz(quiz_id: int, submission: QuizSubmission, db: db_dependency):
+async def submit_quiz(
+    quiz_id: int, 
+    submission: QuizSubmission, 
+    db: db_dependency,
+    current_user: current_user_dependency
+):
     """
     Submit quiz answers and get results.
     Returns score, correct answers, and detailed feedback.
+    Requires X-User-Username header for authentication.
     """
+    # Verify the submission is for the authenticated user
+    if submission.user_username != current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot submit quiz for another user"
+        )
+    
     try:
         quiz_service = QuizService(db)
 
@@ -353,12 +368,21 @@ async def submit_quiz(quiz_id: int, submission: QuizSubmission, db: db_dependenc
 async def get_user_quiz_attempts(
         username: str,
         quiz_id: Optional[int] = None,
-        db: db_dependency = None
+        db: db_dependency = None,
+        current_user: current_user_dependency = None
 ):
     """
     Get user's quiz attempt history.
     Optionally filter by quiz_id.
+    Requires X-User-Username header for authentication.
     """
+    # Verify requesting own data
+    if username != current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot view another user's quiz attempts"
+        )
+    
     quiz_service = QuizService(db)
     attempts = quiz_service.get_user_attempts(username, quiz_id)
 
@@ -404,7 +428,12 @@ async def get_quiz(quiz_id: int, db: db_dependency):
 # ============================================================================
 
 @app.post("/meeting/{meeting_id}/evaluate/{username}", response_model=UserMeetingEvaluationResponse)
-async def evaluate_user_performance(meeting_id: int, username: str, db: db_dependency):
+async def evaluate_user_performance(
+    meeting_id: int, 
+    username: str, 
+    db: db_dependency,
+    current_user: current_user_dependency
+):
     """
     Generate performance evaluation for a user in a specific meeting.
     Evaluates based on:
@@ -416,7 +445,15 @@ async def evaluate_user_performance(meeting_id: int, username: str, db: db_depen
     - Adds score to user's credits
     - Updates user's rolling average score
     - Can only be run once per user-meeting combination
+    Requires X-User-Username header for authentication.
     """
+    # Verify the evaluation is for the authenticated user
+    if username != current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot evaluate another user"
+        )
+    
     try:
         quiz_service = QuizService(db)
         result = await quiz_service.evaluate_user_performance(meeting_id, username)
