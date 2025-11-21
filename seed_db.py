@@ -16,6 +16,12 @@ from quiz_service import QuizService
 
 async def seed_database():
     """Seed the database with test data"""
+    # Recreate tables to ensure schema is up to date
+    print("🔄 Recreating database tables...")
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    print("✓ Database tables recreated\n")
+    
     db = SessionLocal()
     
     try:
