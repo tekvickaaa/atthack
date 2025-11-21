@@ -1,6 +1,21 @@
 <script setup lang="ts">
 
-const { credits } = useCredit();
+const { credits, setCredits } = useCredit();
+const score = ref(0);
+const username = ref('Alice');
+
+onMounted(async () => {
+  try {
+    const data = await $fetch<any>('/api/user/alice');
+    if (data) {
+      username.value = data.username.charAt(0).toUpperCase() + data.username.slice(1);
+      setCredits(data.credits);
+      score.value = data.score;
+    }
+  } catch (e) {
+    console.error('Failed to fetch user data', e);
+  }
+});
 
 const badges = [
   {
@@ -96,13 +111,13 @@ const leaderboard = [
   >
     <div class="flex flex-col gap-5 col-span-1 col-end-2 justify-start h-[740px]">
       <div class="flex flex-col gap-4 rounded-2xl border border-gray-200 p-5">
-        <img
+                <img
             src="../assets/images/dashboard/profil.png"
-            alt="Petr Balabolkin"
+            :alt="username"
             class="rounded-full w-24 h-24"
         >
         <div class="flex flex-col gap-2">
-          <h2 class="text-xl font-bold">Petr Balabolkin</h2>
+          <h2 class="text-xl font-bold">{{ username }}</h2>
           <div class="flex flex-row justify-items-start items-start gap-2">
             <UBadge label="Facilitator" color="secondary" variant="solid" />
             <UBadge label="UX/UI Designer" color="neutral" variant="solid" />
@@ -122,11 +137,11 @@ const leaderboard = [
           <p>ušetrený čas na meetingoch</p>
         </div>
       </div>
-      <div class="flex flex-row gap-5 rounded-2xl border border-gray-200 p-5">
+            <div class="flex flex-row gap-5 rounded-2xl border border-gray-200 p-5">
         <UIcon name="i-lucide-check-check" size="64" />
         <div class="flex flex-col justify-center">
           <h3 class="font-bold text-2xl">
-            0,87
+            {{ score }}
           </h3>
           <p>rozhodnutí za 10 minút</p>
         </div>
