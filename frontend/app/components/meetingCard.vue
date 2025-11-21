@@ -9,8 +9,23 @@ const props = defineProps<{
   "begins_at"?: string,
   "duration"?: string,
   "created_at"?: string,
-  "owner_username"?: string
+  "owner_username"?: string,
+  "quiz_type"?: string
 }>()
+
+const getButtonLabel = () => {
+  if (props.quiz_type === 'intro') return 'Vyplniť vstupný dotazník'
+  if (props.quiz_type === 'outro') return 'Vyplniť záverečný dotazník'
+  if (props.quiz_type === 'sum') return 'Prezrieť zhrnutie'
+  return 'Vyplniť vstupný dotazník'
+}
+
+const getButtonLink = () => {
+  if (props.quiz_type === 'intro') return `/question/${props.id}?type=intro&qN=1`
+  if (props.quiz_type === 'outro') return `/question/${props.id}?type=outro&qN=1`
+  if (props.quiz_type === 'sum') return `/summary/${props.id}`
+  return `/question/${props.id}?type=intro&qN=1`
+}
 
 </script>
 
@@ -23,20 +38,11 @@ const props = defineProps<{
       <p>
         {{ props.description }}
       </p>
-      <div class="flex gap-3">
-        <!--
-        <p v-for="(detail, index) in " :key="index" class="text-sm">
-          {{ detail }}
-        </p>
-        -->
-      </div>
     </div>
-    <!--
     <UButton
-        :label="props.buttonAction == 'Intro' ? 'Vyplniť vstupný dotazník' : props.buttonAction == 'Outro' ? 'Vyplniť zaverečný dotazník' : 'Prezrieť zhrnutie'"
+        :label="getButtonLabel()"
         size="md"
-        :to="props.buttonAction == 'Intro' ? `/question/${props.meetingId}?type='intro'&qN='1'` : props.buttonAction == 'Outro' ? `/question/${props.meetingId}?type='outro'&qN='1'` : `/summary/${props.meetingId}`"
+        :to="getButtonLink()"
     />
-    -->
   </div>
 </template>
