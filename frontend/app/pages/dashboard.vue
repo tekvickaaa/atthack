@@ -1,30 +1,90 @@
 <script setup lang="ts">
 
-const items = [
+const { credits } = useCredit();
+
+const badges = [
   {
-    avatar: 'https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793',
-    name: 'Petr Balabolkin',
+    name: 'Topic Master',
+    image: new URL('~/assets/images/dashboard/badges/TopicMaster.svg', import.meta.url).href,
+    level: 3
+  },
+  {
+    name: 'Facilitator',
+    image: new URL('~/assets/images/dashboard/badges/Facilitator.svg', import.meta.url).href,
+    level: 12
+  },
+  {
+    name: 'Decision Maker',
+    image: new URL('~/assets/images/dashboard/badges/DecisionMaker.svg', import.meta.url).href,
+    level: 4
+  },
+  {
+    name: 'Time Saver',
+    image: new URL('~/assets/images/dashboard/badges/TimeSaver.svg', import.meta.url).href,
+    level: 1
+  },
+  {
+    name: 'Question Asker',
+    image: new URL('~/assets/images/dashboard/badges/QuestionAsker.svg', import.meta.url).href,
+    level: 5
+  },
+  {
+    name: 'Insight Drop',
+    image: new URL('~/assets/images/dashboard/badges/InsightDrop.svg', import.meta.url).href,
+    level: 2
+  }
+]
+
+const leaderboard = [
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=ux&backgroundColor=6366f1',
+    name: 'UX Tím',
+    points: 2850
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=marketing&backgroundColor=ec4899',
+    name: 'Marketing Tím',
+    points: 2650
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=product&backgroundColor=8b5cf6',
+    name: 'Product Tím',
+    points: 2400
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=frontend&backgroundColor=3b82f6',
+    name: 'Frontend Tím',
+    points: 2150
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=sales&backgroundColor=10b981',
+    name: 'Sales Tím',
+    points: 1950
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=hr&backgroundColor=f59e0b',
+    name: 'HR Tím',
+    points: 1800
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=support&backgroundColor=14b8a6',
+    name: 'Support Tím',
+    points: 1650
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=devops&backgroundColor=6366f1',
+    name: 'DevOps Tím',
     points: 1500
   },
   {
-    avatar: 'https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793',
-    name: 'Anna Nováková',
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=qa&backgroundColor=a855f7',
+    name: 'QA Tím',
+    points: 1350
+  },
+  {
+    avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=backend&backgroundColor=ef4444',
+    name: 'Backend Tím',
     points: 1200
-  },
-  {
-    avatar: 'https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793',
-    name: 'Jan Svoboda',
-    points: 1100
-  },
-  {
-    avatar: 'https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793',
-    name: 'Eva Dvořáková',
-    points: 900
-  },
-  {
-    avatar: 'https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793',
-    name: 'Karel Černý',
-    points: 800
   }
 ];
 
@@ -49,7 +109,7 @@ const items = [
             <UBadge label="NoFlowCharts" color="neutral" variant="solid" />
           </div>
           <div>
-            Credits: 3450
+            Credits: {{ credits }}
           </div>
         </div>
       </div>
@@ -74,100 +134,38 @@ const items = [
     </div>
     <div class="flex flex-col col-span-2 col-start-2 col-end-2 gap-5">
       <div class="flex flex-col rounded-2xl border border-gray-200 p-5 items-center gap-5">
-        <UIcon name="i-lucide-brick-wall-fire" size="96" />
+        <UIcon name="i-lucide-brick-wall-fire" size="96" class="bg-orange-500" />
         <h3 class="font-bold text-6xl">
           78
         </h3>
         <p>
-          dnov bez off-topicu na meetingoch
+          dní bez off-topicu na meetingoch
         </p>
       </div>
       <div class="rounded-2xl border border-gray-200 p-5 h-full">
         <div class="grid grid-cols-2 grid-rows-3 gap-5 justify-around">
-          <div class="flex flex-col justify-center items-center gap-3">
-            <div class="bg-red-500 p-2 rounded-full w-fit">
-              <div class="bg-white p-1 rounded-full w-fit">
-                <img
-                    src="https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793"
-                    alt="Badge 1"
-                    class="rounded-full w-24 h-24"
-                >
-              </div>
-            </div>
-            <p>frevrew</p>
-          </div>
-
-          <div class="flex flex-col justify-center items-center gap-3">
-            <div class="bg-red-500 p-2 rounded-full w-fit">
-              <div class="bg-white p-1 rounded-full w-fit">
-                <img
-                    src="https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793"
-                    alt="Badge 1"
-                    class="rounded-full w-24 h-24"
-                >
-              </div>
-            </div>
-            <p>frevrew</p>
-          </div>
-          <div class="flex flex-col justify-center items-center gap-3">
-            <div class="bg-red-500 p-2 rounded-full w-fit">
-              <div class="bg-white p-1 rounded-full w-fit">
-                <img
-                    src="https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793"
-                    alt="Badge 1"
-                    class="rounded-full w-24 h-24"
-                >
-              </div>
-            </div>
-            <p>frevrew</p>
-          </div>
-          <div class="flex flex-col justify-center items-center gap-3">
-            <div class="bg-red-500 p-2 rounded-full w-fit">
-              <div class="bg-white p-1 rounded-full w-fit">
-                <img
-                    src="https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793"
-                    alt="Badge 1"
-                    class="rounded-full w-24 h-24"
-                >
-              </div>
-            </div>
-            <p>frevrew</p>
-          </div>
-          <div class="flex flex-col justify-center items-center gap-3">
-            <div class="bg-red-500 p-2 rounded-full w-fit">
-              <div class="bg-white p-1 rounded-full w-fit">
-                <img
-                    src="https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793"
-                    alt="Badge 1"
-                    class="rounded-full w-24 h-24"
-                >
-              </div>
-            </div>
-            <p>frevrew</p>
-          </div>
-          <div class="flex flex-col justify-center items-center gap-3">
-            <div class="bg-red-500 p-2 rounded-full w-fit">
-              <div class="bg-white p-1 rounded-full w-fit">
-                <img
-                    src="https://i.im.cz/ac/GD28XJSSHLRfouD6jTtWyiz0RE_mDKmhbRvpeQoF/48?r2=0.4625850170554793"
-                    alt="Badge 1"
-                    class="rounded-full w-24 h-24"
-                >
-              </div>
-            </div>
-            <p>frevrew</p>
-          </div>
-
+          <AchievementBadge
+              v-for="(badge, index) in badges"
+              :key="index"
+              :badgeImage="badge.image"
+              :badgeName="badge.name"
+              :badgeCount="badge.level"
+          />
         </div>
       </div>
     </div>
-    <div class="col-start-3 col-end-3 rounded-2xl border border-gray-200 p-5 flex flex-col gap-5">
+    <div class="col-start-3 col-end-3 rounded-2xl border border-gray-200 p-5 flex flex-col gap-5 h-[740px] overflow-y-auto">
         <h2 class="font-bold text-2xl">
           Leaderboard
         </h2>
-        <div class="flex flex-col gap-5">
-          <div v-for="(item, index) in items" :key="item.name" class="flex flex-row items-center gap-3">
-            <p>{{ index + 1 }}.</p>
+        <div class="flex flex-col gap-5 h-[700px] overflow-y-auto">
+          <div
+            v-for="(item, index) in leaderboard"
+            :key="item.name"
+            class="flex flex-row items-center gap-3 px-4 py-2 rounded-lg"
+            :class="{ 'bg-gray-100 border border-gray-300': item.name === 'UX Tím' }"
+          >
+            <p class="w-4">{{ index + 1 }}.</p>
             <img
                 :src="item.avatar"
                 :alt="item.name"
