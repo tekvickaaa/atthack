@@ -162,6 +162,27 @@ class QuizService:
 
         return query.order_by(desc(UserQuizAttempt.completed_at)).all()
 
+    def get_meeting_summary(self, meeting_id: int) -> Optional[Dict]:
+        """Get existing meeting summary without regenerating"""
+        meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()
+        if not meeting:
+            return None
+        
+        # Get transcript count
+        transcript_count = self.db.query(Transcribe).filter(
+            Transcribe.meeting_id == meeting_id
+        ).count()
+        
+        return {
+            "meeting_id": meeting_id,
+            "meeting_name": meeting.name,
+            "meeting_description": meeting.description,
+            "summary_points": meeting.summary,
+            "generated_at": meeting.created_at if meeting.summary else None,
+            "has_summary": meeting.summary is not None,
+            "transcript_count": transcript_count
+        }
+
     async def generate_meeting_summary(self, meeting_id: int) -> Dict:
         """Generate summary from transcripts and save to meeting"""
         meeting = self.db.query(Meeting).filter(Meeting.id == meeting_id).first()

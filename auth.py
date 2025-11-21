@@ -1,12 +1,21 @@
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from typing import Annotated
 from models import User
+from database import SessionLocal
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def get_current_user(
     x_user_username: Annotated[str, Header()],
-    db: Session
+    db: Session = Depends(get_db)
 ) -> User:
     """
     Simple authentication dependency.
