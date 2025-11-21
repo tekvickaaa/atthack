@@ -2,6 +2,11 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 
 const route = useRoute()
+const { fetchCredits } = useCredit()
+
+onMounted(() => {
+  fetchCredits()
+})
 
 const items = computed<NavigationMenuItem[]>(() => [{
   label: 'Dashboard',
