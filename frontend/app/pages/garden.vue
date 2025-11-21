@@ -517,6 +517,31 @@ function mergeSprites(source: Sprite, target: Sprite) {
   spawnFloatingText(target.x, target.y, 'LEVEL UP!', '#FF00FF')
 }
 
+function debugFinishProduction() {
+  for (const spriteData of gameState.value.sprites) {
+    if (spriteData.state === 'PRODUCING') {
+      spriteData.state = 'READY'
+      const sprite = spriteMap.get(spriteData.id)
+      if (sprite) updateSpriteState(sprite, spriteData)
+    }
+  }
+  saveState(gameState.value)
+  spawnFloatingText(app!.screen.width / 2, app!.screen.height / 2, 'ALL JOBS DONE!', '#00FF00')
+}
+
+function debugDirtyAnimals() {
+  const animals = ['sheep', 'cow', 'chicken', 'pig']
+  for (const spriteData of gameState.value.sprites) {
+    if (animals.includes(spriteData.type)) {
+      spriteData.state = 'DIRTY'
+      const sprite = spriteMap.get(spriteData.id)
+      if (sprite) updateSpriteState(sprite, spriteData)
+    }
+  }
+  saveState(gameState.value)
+  spawnFloatingText(app!.screen.width / 2, app!.screen.height / 2, 'ANIMALS DIRTY!', '#8B4513')
+}
+
 function resizeApp() {
   if (app && pixiContainer.value) {
     const width = pixiContainer.value.offsetWidth
@@ -1071,6 +1096,12 @@ onBeforeUnmount(() => {
           </button>
           <button @click="gameState.buildLimit += 10; saveState(gameState)" class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded">
             +10 Builds
+          </button>
+          <button @click="debugFinishProduction()" class="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded">
+            ⚡ Finish Jobs
+          </button>
+          <button @click="debugDirtyAnimals()" class="px-3 py-2 bg-stone-500 hover:bg-stone-600 text-white text-xs font-bold rounded">
+            💩 Dirty Animals
           </button>
         </div>
       </div>
