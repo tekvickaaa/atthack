@@ -26,6 +26,11 @@ A comprehensive tool that records Discord voice channels, transcribes audio usin
 - **Audio Processing:** @ricky0123/vad-node (Voice Activity Detection), Prism Media
 - **AI:** Google Generative AI (Gemini)
 
+### Discord Commands
+- `!transcribe "Meeting Name" "Meeting Description"` - Starts recording and transcribing a meeting.
+  - Example: `!transcribe "Team Standup" "Daily standup meeting for the dev team"`
+- `!stop` - Stops the recording, saves the transcript, and generates a summary.
+
 ### AI Models
 - **Transcription:** Gemini 2.0 Flash (Google Generative AI)
 - **Relevancy Check:** GPT-OSS 20B (via OpenRouter)
