@@ -242,7 +242,7 @@ async def get_outro_quiz(meeting_id: int, db: db_dependency):
 @app.get("/meeting/{meeting_id}/summary", response_model=MeetingSummaryResponse)
 async def get_meeting_summary(meeting_id: int, db: db_dependency):
     """
-    Get meeting summary (generated from outro quiz).
+    Get meeting summary (generated from transcripts).
     Returns summary points and metadata.
     """
     quiz_service = QuizService(db)
@@ -256,6 +256,23 @@ async def get_meeting_summary(meeting_id: int, db: db_dependency):
 
     return summary
 
+@app.post("/meeting/{meeting_id}/summary/generate", response_model=MeetingSummaryResponse)
+async def generate_meeting_summary(meeting_id: int, db: db_dependency):
+    """
+    Generate a new summary from meeting transcripts.
+    This will analyze all transcripts and create a comprehensive summary.
+    """
+    try:
+        quiz_service = QuizService(db)
+        summary = await quiz_service.generate_meeting_summary(meeting_id)
+        return summary
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate summary: {str(e)}"
+        )
 
 @app.post("/quiz/{quiz_id}/submit", response_model=QuizSubmissionResponse)
 async def submit_quiz(quiz_id: int, submission: QuizSubmission, db: db_dependency):

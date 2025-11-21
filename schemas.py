@@ -36,6 +36,7 @@ class TranscribeResponse(BaseSchema):
     timestamp: datetime
     guild_id: Optional[str] = None
     channel_id: Optional[str] = None
+    faul: bool
     created_at: datetime
 
 class MeetingResponse(BaseSchema):
@@ -169,10 +170,11 @@ class UserQuizAttemptResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# Meeting summary schema
 class MeetingSummaryResponse(BaseModel):
     meeting_id: int
     meeting_name: str
+    meeting_description: str
     summary_points: Optional[str] = None
     generated_at: Optional[datetime] = None
-    has_outro_quiz: bool
+    has_summary: bool
+    transcript_count: Optional[int] = None
